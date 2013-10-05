@@ -1,0 +1,20 @@
+<package>
+
+  <description brief="loam_continuous">
+
+     Laser Odometry and Mapping (continuous spin version)
+
+  </description>
+  <author>Ji Zhang</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://wiki.ros.org/loam_continuous</url>
+  <depend package="roscpp"/>
+  <depend package="std_msgs"/>
+  <depend package="sensor_msgs"/>
+  <depend package="opencv2"/>
+  <depend package="pcl_ros"/>
+
+</package>
+
+
