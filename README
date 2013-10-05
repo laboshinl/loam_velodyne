@@ -2,11 +2,13 @@ Lidar Odometry and Mapping (Loam) is a realtime method for state estimation and 
 
 The program is tested on ROS Fuerte, on a Laptop computer with 2.5GHz quad cores and 6Gib memory (the program consumes two cores). This version uses a lidar that spins continuously.
 
-Wiki Webpage: https://github.com/jizhang-cmu/loam_continuous.git
+Wiki Webpage: http://wiki.ros.org/loam_continuous
 
 Another version of the program that uses back and forth spin is available at
 
-https://github.com/jizhang-cmu/loam_backAndForth.git
+Wiki Webpage: http://wiki.ros.org/loam_backAndForth
+
+GitHub Code: https://github.com/jizhang-cmu/loam_backAndForth.git
 
 How to use:
 
