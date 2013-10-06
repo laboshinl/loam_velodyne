@@ -1,6 +1,6 @@
 Lidar Odometry and Mapping (Loam) is a realtime method for state estimation and mapping using a 3D lidar, and optionally an IMU. The program contains four nodes. The “scanRegistration” node stacks laser scans within a sweep and publishes them as point cloud. The “laserOdometry” node estimates motion of the lidar between two sweeps, at a higher frame rate. The node corrects distortion in the point cloud from motion of the lidar. The “laserMapping” node takes the output of “laser_odometry” and incrementally builds a map. It also computes pose of the lidar on the map, at a lower frame rate. The state estimation of the lidar is combination of the outputs from “laserOdometry” and “laserMapping”, integrated in the “transformMaintenance” node. 
 
-The program is tested on ROS Fuerte, on a Laptop computer with 2.5GHz quad cores and 6Gib memory (the program consumes two cores). This version uses a lidar that spins continuously.
+The program is tested on ROS Fuerte, on a Laptop computer with 2.5 GHz quad cores and 6 Gib memory (the program consumes two cores). This version uses a lidar that spins continuously.
 
 Wiki Webpage: http://wiki.ros.org/loam_continuous
 
