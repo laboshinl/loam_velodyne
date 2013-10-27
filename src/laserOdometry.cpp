@@ -340,6 +340,7 @@ int main(int argc, char** argv)
 
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;
+  std::vector<int> pointSelInd;
 
   pcl::PointXYZHSV extreOri, extreSel, extreProj, tripod1, tripod2, tripod3, coeff;
 
@@ -415,6 +416,7 @@ int main(int argc, char** argv)
       }
       int iterNum = st * 50;
 
+      int pointSelSkipNum = 2;
       for (int iterCount = 0; iterCount < iterNum; iterCount++) {
 
         laserCloudExtreOri->clear();
@@ -424,68 +426,97 @@ int main(int argc, char** argv)
         //laserCloudSel->clear();
         coeffSel->clear();
 
-        for (int i = 0; i < extrePointNum; i++) {
+        bool isPointSel = false;
+        if (iterCount % (pointSelSkipNum + 1) == 0) {
+          isPointSel = true;
+          pointSelInd.clear();
+        }
 
+        for (int i = 0; i < extrePointNum; i++) {
           extreOri = extrePointsPtr->points[i];
           TransformToStart(&extreOri, &extreSel, startTime, endTime);
+
+          if (isPointSel) {
+            pointSelInd.push_back(-1);
+            pointSelInd.push_back(-1);
+            pointSelInd.push_back(-1);
+          }
+
           if (fabs(extreOri.v + 1) < 0.05) {
 
-            kdtreeSurfPtr->nearestKSearch(extreSel, 1, pointSearchInd, pointSearchSqDis);
-            if (pointSearchSqDis[0] > 1.0) {
-              continue;
-            }
-
-            int closestPointInd = pointSearchInd[0];
-            float closestPointTime = laserCloudSurfPtr->points[closestPointInd].h;
-
-            int minPointInd2 = -1, minPointInd3 = -1;
-            float pointSqDis, minPointSqDis2 = 1, minPointSqDis3 = 1;
-            for (int j = closestPointInd + 1; j < laserCloudSurfNum; j++) {
-              if (laserCloudSurfPtr->points[j].h > closestPointTime + 0.07) {
-                break;
+            int closestPointInd = -1, minPointInd2 = -1, minPointInd3 = -1;
+            if (isPointSel) {
+              kdtreeSurfPtr->nearestKSearch(extreSel, 1, pointSearchInd, pointSearchSqDis);
+              if (pointSearchSqDis[0] > 1.0) {
+                continue;
               }
 
-              pointSqDis = (laserCloudSurfPtr->points[j].x - extreSel.x) * 
-                           (laserCloudSurfPtr->points[j].x - extreSel.x) + 
-                           (laserCloudSurfPtr->points[j].y - extreSel.y) * 
-                           (laserCloudSurfPtr->points[j].y - extreSel.y) + 
-                           (laserCloudSurfPtr->points[j].z - extreSel.z) * 
-                           (laserCloudSurfPtr->points[j].z - extreSel.z);
+              closestPointInd = pointSearchInd[0];
+              float closestPointTime = laserCloudSurfPtr->points[closestPointInd].h;
 
-              if (laserCloudSurfPtr->points[j].h < closestPointTime + 0.005) {
-                 if (pointSqDis < minPointSqDis2) {
-                   minPointSqDis2 = pointSqDis;
-                   minPointInd2 = j;
-                 }
+              float pointSqDis, minPointSqDis2 = 1, minPointSqDis3 = 1;
+              for (int j = closestPointInd + 1; j < laserCloudSurfNum; j++) {
+                if (laserCloudSurfPtr->points[j].h > closestPointTime + 0.07) {
+                  break;
+                }
+
+                pointSqDis = (laserCloudSurfPtr->points[j].x - extreSel.x) * 
+                             (laserCloudSurfPtr->points[j].x - extreSel.x) + 
+                             (laserCloudSurfPtr->points[j].y - extreSel.y) * 
+                             (laserCloudSurfPtr->points[j].y - extreSel.y) + 
+                             (laserCloudSurfPtr->points[j].z - extreSel.z) * 
+                             (laserCloudSurfPtr->points[j].z - extreSel.z);
+
+                if (laserCloudSurfPtr->points[j].h < closestPointTime + 0.005) {
+                   if (pointSqDis < minPointSqDis2) {
+                     minPointSqDis2 = pointSqDis;
+                     minPointInd2 = j;
+                   }
+                } else {
+                   if (pointSqDis < minPointSqDis3) {
+                     minPointSqDis3 = pointSqDis;
+                     minPointInd3 = j;
+                   }
+                }
+              }
+              for (int j = closestPointInd - 1; j >= 0; j--) {
+                if (laserCloudSurfPtr->points[j].h < closestPointTime - 0.07) {
+                  break;
+                }
+
+                pointSqDis = (laserCloudSurfPtr->points[j].x - extreSel.x) * 
+                             (laserCloudSurfPtr->points[j].x - extreSel.x) + 
+                             (laserCloudSurfPtr->points[j].y - extreSel.y) * 
+                             (laserCloudSurfPtr->points[j].y - extreSel.y) + 
+                             (laserCloudSurfPtr->points[j].z - extreSel.z) * 
+                             (laserCloudSurfPtr->points[j].z - extreSel.z);
+
+                if (laserCloudSurfPtr->points[j].h > closestPointTime - 0.005) {
+                   if (pointSqDis < minPointSqDis2) {
+                     minPointSqDis2 = pointSqDis;
+                     minPointInd2 = j;
+                   }
+                } else {
+                   if (pointSqDis < minPointSqDis3) {
+                     minPointSqDis3 = pointSqDis;
+                     minPointInd3 = j;
+                   }
+                }
+              }
+            } else {
+              if (pointSelInd[3 * i] >= 0) {
+                closestPointInd = pointSelInd[3 * i];
+                minPointInd2 = pointSelInd[3 * i + 1];
+                minPointInd3 = pointSelInd[3 * i + 2];
+
+                float distX = extreSel.x - laserCloudSurfPtr->points[closestPointInd].x;
+                float distY = extreSel.y - laserCloudSurfPtr->points[closestPointInd].y;
+                float distZ = extreSel.z - laserCloudSurfPtr->points[closestPointInd].z;
+                if (distX * distX + distY * distY + distZ * distZ > 1.0) {
+                  continue;
+                }
               } else {
-                 if (pointSqDis < minPointSqDis3) {
-                   minPointSqDis3 = pointSqDis;
-                   minPointInd3 = j;
-                 }
-              }
-            }
-            for (int j = closestPointInd - 1; j >= 0; j--) {
-              if (laserCloudSurfPtr->points[j].h < closestPointTime - 0.07) {
-                break;
-              }
-
-              pointSqDis = (laserCloudSurfPtr->points[j].x - extreSel.x) * 
-                           (laserCloudSurfPtr->points[j].x - extreSel.x) + 
-                           (laserCloudSurfPtr->points[j].y - extreSel.y) * 
-                           (laserCloudSurfPtr->points[j].y - extreSel.y) + 
-                           (laserCloudSurfPtr->points[j].z - extreSel.z) * 
-                           (laserCloudSurfPtr->points[j].z - extreSel.z);
-
-              if (laserCloudSurfPtr->points[j].h > closestPointTime - 0.005) {
-                 if (pointSqDis < minPointSqDis2) {
-                   minPointSqDis2 = pointSqDis;
-                   minPointInd2 = j;
-                 }
-              } else {
-                 if (pointSqDis < minPointSqDis3) {
-                   minPointSqDis3 = pointSqDis;
-                   minPointInd3 = j;
-                 }
+                continue;
               }
             }
 
@@ -534,58 +565,80 @@ int main(int argc, char** argv)
                 //laserCloudSel->push_back(tripod2);
                 //laserCloudSel->push_back(tripod3);
                 coeffSel->push_back(coeff);
+
+                if (isPointSel) {
+                  pointSelInd[3 * i] = closestPointInd;
+                  pointSelInd[3 * i + 1] = minPointInd2;
+                  pointSelInd[3 * i + 2] = minPointInd3;
+                }
               } else {
                 //laserCloudExtreUnsel->push_back(extreSel);
               }
             }
           } else if (fabs(extreOri.v - 2) < 0.05) {
 
-            kdtreeCornerPtr->nearestKSearch(extreSel, 1, pointSearchInd, pointSearchSqDis);
-            if (pointSearchSqDis[0] > 1.0) {
-              continue;
-            }
-
-            int closestPointInd = pointSearchInd[0];
-            float closestPointTime = laserCloudCornerPtr->points[closestPointInd].h;
-
-            int minPointInd2 = -1;
-            float pointSqDis, minPointSqDis2 = 1;
-            for (int j = closestPointInd + 1; j < laserCloudCornerNum; j++) {
-              if (laserCloudCornerPtr->points[j].h > closestPointTime + 0.07) {
-                break;
+            int closestPointInd = -1, minPointInd2 = -1;
+            if (isPointSel) {
+              kdtreeCornerPtr->nearestKSearch(extreSel, 1, pointSearchInd, pointSearchSqDis);
+              if (pointSearchSqDis[0] > 1.0) {
+                continue;
               }
 
-              pointSqDis = (laserCloudCornerPtr->points[j].x - extreSel.x) * 
-                           (laserCloudCornerPtr->points[j].x - extreSel.x) + 
-                           (laserCloudCornerPtr->points[j].y - extreSel.y) * 
-                           (laserCloudCornerPtr->points[j].y - extreSel.y) + 
-                           (laserCloudCornerPtr->points[j].z - extreSel.z) * 
-                           (laserCloudCornerPtr->points[j].z - extreSel.z);
+              closestPointInd = pointSearchInd[0];
+              float closestPointTime = laserCloudCornerPtr->points[closestPointInd].h;
 
-              if (laserCloudCornerPtr->points[j].h > closestPointTime + 0.005) {
-                 if (pointSqDis < minPointSqDis2) {
-                   minPointSqDis2 = pointSqDis;
-                   minPointInd2 = j;
-                 }
+              float pointSqDis, minPointSqDis2 = 1;
+              for (int j = closestPointInd + 1; j < laserCloudCornerNum; j++) {
+                if (laserCloudCornerPtr->points[j].h > closestPointTime + 0.07) {
+                  break;
+                }
+
+                pointSqDis = (laserCloudCornerPtr->points[j].x - extreSel.x) * 
+                             (laserCloudCornerPtr->points[j].x - extreSel.x) + 
+                             (laserCloudCornerPtr->points[j].y - extreSel.y) * 
+                             (laserCloudCornerPtr->points[j].y - extreSel.y) + 
+                             (laserCloudCornerPtr->points[j].z - extreSel.z) * 
+                             (laserCloudCornerPtr->points[j].z - extreSel.z);
+
+                if (laserCloudCornerPtr->points[j].h > closestPointTime + 0.005) {
+                   if (pointSqDis < minPointSqDis2) {
+                     minPointSqDis2 = pointSqDis;
+                     minPointInd2 = j;
+                   }
+                }
               }
-            }
-            for (int j = closestPointInd - 1; j >= 0; j--) {
-              if (laserCloudCornerPtr->points[j].h < closestPointTime - 0.07) {
-                break;
+              for (int j = closestPointInd - 1; j >= 0; j--) {
+                if (laserCloudCornerPtr->points[j].h < closestPointTime - 0.07) {
+                  break;
+                }
+
+                pointSqDis = (laserCloudCornerPtr->points[j].x - extreSel.x) * 
+                             (laserCloudCornerPtr->points[j].x - extreSel.x) + 
+                             (laserCloudCornerPtr->points[j].y - extreSel.y) * 
+                             (laserCloudCornerPtr->points[j].y - extreSel.y) + 
+                             (laserCloudCornerPtr->points[j].z - extreSel.z) * 
+                             (laserCloudCornerPtr->points[j].z - extreSel.z);
+
+                if (laserCloudCornerPtr->points[j].h < closestPointTime - 0.005) {
+                   if (pointSqDis < minPointSqDis2) {
+                     minPointSqDis2 = pointSqDis;
+                     minPointInd2 = j;
+                   }
+                }
               }
+            } else {
+              if (pointSelInd[3 * i] >= 0) {
+                closestPointInd = pointSelInd[3 * i];
+                minPointInd2 = pointSelInd[3 * i + 1];
 
-              pointSqDis = (laserCloudCornerPtr->points[j].x - extreSel.x) * 
-                           (laserCloudCornerPtr->points[j].x - extreSel.x) + 
-                           (laserCloudCornerPtr->points[j].y - extreSel.y) * 
-                           (laserCloudCornerPtr->points[j].y - extreSel.y) + 
-                           (laserCloudCornerPtr->points[j].z - extreSel.z) * 
-                           (laserCloudCornerPtr->points[j].z - extreSel.z);
-
-              if (laserCloudCornerPtr->points[j].h < closestPointTime - 0.005) {
-                 if (pointSqDis < minPointSqDis2) {
-                   minPointSqDis2 = pointSqDis;
-                   minPointInd2 = j;
-                 }
+                float distX = extreSel.x - laserCloudCornerPtr->points[closestPointInd].x;
+                float distY = extreSel.y - laserCloudCornerPtr->points[closestPointInd].y;
+                float distZ = extreSel.z - laserCloudCornerPtr->points[closestPointInd].z;
+                if (distX * distX + distY * distY + distZ * distZ > 1.0) {
+                  continue;
+                }
+              } else {
+                continue;
               }
             }
 
@@ -642,6 +695,11 @@ int main(int argc, char** argv)
                 //laserCloudSel->push_back(tripod1);
                 //laserCloudSel->push_back(tripod2);
                 coeffSel->push_back(coeff);
+
+                if (isPointSel) {
+                  pointSelInd[3 * i] = closestPointInd;
+                  pointSelInd[3 * i + 1] = minPointInd2;
+                }
               } else {
                 //laserCloudExtreUnsel->push_back(extreSel);
               }
