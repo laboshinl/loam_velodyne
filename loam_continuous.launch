@@ -1,10 +1,14 @@
 <launch>
 
+  <arg name="rviz" default="true" />
+
   <node pkg="loam_continuous" type="scanRegistration" name="scanRegistration" output="screen"/>
   <node pkg="loam_continuous" type="laserOdometry" name="laserOdometry" output="screen"/>
   <node pkg="loam_continuous" type="laserMapping" name="laserMapping" output="screen"/>
   <node pkg="loam_continuous" type="transformMaintenance" name="transformMaintenance" output="screen"/>
 
-  <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find loam_continuous)/loam_continuous.vcg"/>
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find loam_continuous)/loam_continuous.vcg"/>
+  </group>
 
 </launch>
