@@ -14,6 +14,6 @@ How to use:
 
 1) Download the program file to a ROS directory, unpack the file and rename the folder to “loam_continuous” (GitHub added "-master" to the folder name). Go to the folder and “rosmake”, then “roslunch loam_continuous.launch”. The launch file should start the program (with four nodes) and rviz.
 
-2) Download datasets from the following website. Make sure the data files are continuous spin (not back and forth spin). Play the date files with “rosbag play data_file_name.bag”. Note that if a slow computer is used, users can try to play the data files at a lower speed, e.g. “rosbag play data_file_name.bag -r 0.5” plays the data file at half speed.
+2) Download datasets from the following website. Make sure the data files are continuous spin (not back and forth spin). Play the data files with “rosbag play data_file_name.bag”. Note that if a slow computer is used, users can try to play the data files at a lower speed, e.g. “rosbag play data_file_name.bag -r 0.5” plays the data file at half speed.
 
 Datasets can be downloaded at: http://www.frc.ri.cmu.edu/~jizhang03
