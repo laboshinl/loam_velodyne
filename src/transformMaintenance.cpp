@@ -40,19 +40,19 @@ tf::StampedTransform laserOdometryTrans2;
 
 void transformAssociateToMap()
 {
-  float x1 = cos(transformSum[2]) * (transformBefMapped[3] - transformSum[3]) 
-           + sin(transformSum[2]) * (transformBefMapped[4] - transformSum[4]);
-  float y1 = -sin(transformSum[2]) * (transformBefMapped[3] - transformSum[3])
-           + cos(transformSum[2]) * (transformBefMapped[4] - transformSum[4]);
-  float z1 = transformBefMapped[5] - transformSum[5];
+  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
+           - sin(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
+  float y1 = transformBefMapped[4] - transformSum[4];
+  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
+           + cos(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
 
   float x2 = x1;
   float y2 = cos(transformSum[0]) * y1 + sin(transformSum[0]) * z1;
   float z2 = -sin(transformSum[0]) * y1 + cos(transformSum[0]) * z1;
 
-  transformIncre[3] = cos(transformSum[1]) * x1 - sin(transformSum[1]) * z1;
-  transformIncre[4] = y2;
-  transformIncre[5] = sin(transformSum[1]) * x1 + cos(transformSum[1]) * z1;
+  transformIncre[3] = cos(transformSum[2]) * x2 + sin(transformSum[2]) * y2;
+  transformIncre[4] = -sin(transformSum[2]) * x2 + cos(transformSum[2]) * y2;
+  transformIncre[5] = z2;
 
   transformIncre[0] = transformBefMapped[0] - transformSum[0];
   transformIncre[1] = transformBefMapped[1] - transformSum[1];
@@ -62,21 +62,19 @@ void transformAssociateToMap()
   transformMapped[1] = transformAftMapped[1] - transformIncre[1];
   transformMapped[2] = transformAftMapped[2] - transformIncre[2];
 
-  x1 = cos(transformMapped[1]) * transformIncre[3] 
-     + sin(transformMapped[1]) * transformIncre[5];
-  y1 = transformIncre[4];
-  z1 = -sin(transformMapped[1]) * transformIncre[3] 
-     + cos(transformMapped[1]) * transformIncre[5];
+  x1 = cos(transformMapped[2]) * transformIncre[3] - sin(transformMapped[2]) * transformIncre[4];
+  y1 = sin(transformMapped[2]) * transformIncre[3] + cos(transformMapped[2]) * transformIncre[4];
+  z1 = transformIncre[5];
 
   x2 = x1;
   y2 = cos(transformMapped[0]) * y1 - sin(transformMapped[0]) * z1;
   z2 = sin(transformMapped[0]) * y1 + cos(transformMapped[0]) * z1;
 
   transformMapped[3] = transformAftMapped[3] 
-                         - (cos(transformMapped[2]) * x2 - sin(transformMapped[2]) * y2);
-  transformMapped[4] = transformAftMapped[4] 
-                         - (sin(transformMapped[2]) * x2 + cos(transformMapped[2]) * y2);
-  transformMapped[5] = transformAftMapped[5] - z2;
+                     - (cos(transformMapped[1]) * x2 + sin(transformMapped[1]) * z2);
+  transformMapped[4] = transformAftMapped[4] - y2;
+  transformMapped[5] = transformAftMapped[5] 
+                     - (-sin(transformMapped[1]) * x2 + cos(transformMapped[1]) * z2);
 }
 
 void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
@@ -157,15 +155,15 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry> 
-                                     ("/cam_to_init", 1, laserOdometryHandler);
+                                     ("/cam_to_init", 5, laserOdometryHandler);
 
   ros::Subscriber subOdomBefMapped = nh.subscribe<nav_msgs::Odometry> 
-                                     ("/bef_mapped_to_init_2", 1, odomBefMappedHandler);
+                                     ("/bef_mapped_to_init_2", 5, odomBefMappedHandler);
 
   ros::Subscriber subOdomAftMapped = nh.subscribe<nav_msgs::Odometry> 
-                                     ("/aft_mapped_to_init_2", 1, odomAftMappedHandler);
+                                     ("/aft_mapped_to_init_2", 5, odomAftMappedHandler);
 
-  ros::Publisher pubLaserOdometry2 = nh.advertise<nav_msgs::Odometry> ("/cam_to_init_2", 1);
+  ros::Publisher pubLaserOdometry2 = nh.advertise<nav_msgs::Odometry> ("/cam_to_init_2", 5);
   pubLaserOdometry2Pointer = &pubLaserOdometry2;
   laserOdometry2.header.frame_id = "/camera_init_2";
   laserOdometry2.child_frame_id = "/camera";
