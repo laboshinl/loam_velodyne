@@ -309,12 +309,12 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   ros::Subscriber subLaserCloudExtreCur = nh.subscribe<sensor_msgs::PointCloud2> 
-                                          ("/laser_cloud_extre_cur", 1, laserCloudExtreCurHandler);
+                                          ("/laser_cloud_extre_cur", 2, laserCloudExtreCurHandler);
 
   ros::Subscriber subLaserCloudLast = nh.subscribe<sensor_msgs::PointCloud2> 
-                                      ("/laser_cloud_last", 1, laserCloudLastHandler);
+                                      ("/laser_cloud_last", 2, laserCloudLastHandler);
 
-  ros::Publisher pubLaserCloudLast2 = nh.advertise<sensor_msgs::PointCloud2> ("/laser_cloud_last_2", 1);
+  ros::Publisher pubLaserCloudLast2 = nh.advertise<sensor_msgs::PointCloud2> ("/laser_cloud_last_2", 2);
 
   //ros::Publisher pub1 = nh.advertise<sensor_msgs::PointCloud2> ("/pc1", 1);
 
@@ -328,7 +328,7 @@ int main(int argc, char** argv)
 
   //ros::Publisher pub6 = nh.advertise<sensor_msgs::PointCloud2> ("/pc6", 1);
 
-  ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry> ("/cam_to_init", 1);
+  ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry> ("/cam_to_init", 5);
   nav_msgs::Odometry laserOdometry;
   laserOdometry.header.frame_id = "/camera_init";
   laserOdometry.child_frame_id = "/camera";
@@ -930,8 +930,8 @@ int main(int argc, char** argv)
       laserOdometryTrans.setOrigin(tf::Vector3(tx, ty, tz));
       tfBroadcaster.sendTransform(laserOdometryTrans);
 
-      //ROS_INFO ("%f %f %f %f %f %f", transformSum[0], transformSum[2], transformSum[3], 
-      //                               transformSum[4], transformSum[5], transformSum[6]);
+      //ROS_INFO ("%f %f %f %f %f %f", transformSum[0], transformSum[1], transformSum[2], 
+      //                               transformSum[3], transformSum[4], transformSum[5]);
     }
 
     status = ros::ok();
