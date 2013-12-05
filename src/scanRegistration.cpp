@@ -674,16 +674,16 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
-                                  ("/sync_scan_cloud_filtered", 1, laserCloudHandler);
+                                  ("/sync_scan_cloud_filtered", 2, laserCloudHandler);
 
   ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu> 
-                           ("/microstrain/imu", 1, imuHandler);
+                           ("/microstrain/imu", 5, imuHandler);
 
   ros::Publisher pubLaserCloudExtreCur = nh.advertise<sensor_msgs::PointCloud2> 
-                                         ("/laser_cloud_extre_cur", 1);
+                                         ("/laser_cloud_extre_cur", 2);
 
   ros::Publisher pubLaserCloudLast = nh.advertise<sensor_msgs::PointCloud2> 
-                                     ("/laser_cloud_last", 1);
+                                     ("/laser_cloud_last", 2);
 
   pubLaserCloudExtreCurPointer = &pubLaserCloudExtreCur;
   pubLaserCloudLastPointer = &pubLaserCloudLast;
