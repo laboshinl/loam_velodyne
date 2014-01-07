@@ -606,8 +606,8 @@ int main(int argc, char** argv)
       transformUpdate();
 
       for (int i = 0; i < laserCloudLastNum; i++) {
-        if (fabs(laserCloudLast->points[i].x > 0.3) || fabs(laserCloudLast->points[i].y > 0.3) ||
-            fabs(laserCloudLast->points[i].z > 0.3)) {
+        if (fabs(laserCloudLast->points[i].x) > 0.3 || fabs(laserCloudLast->points[i].y) > 0.3 ||
+            fabs(laserCloudLast->points[i].z) > 0.3) {
 
           pointAssociateToMap(&laserCloudLast->points[i], &pointSel);
 
