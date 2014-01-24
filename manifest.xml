@@ -6,7 +6,7 @@
 
   </description>
   <author>Ji Zhang</author>
-  <license>BSD</license>
+  <license>LGPL</license>
   <review status="unreviewed" notes=""/>
   <url>http://wiki.ros.org/loam_continuous</url>
   <depend package="roscpp"/>
