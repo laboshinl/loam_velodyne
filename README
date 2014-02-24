@@ -16,4 +16,4 @@ How to use:
 
 2) Download datasets from the following website. Make sure the data files are for continuous spin (not back and forth spin). Play the data files with “rosbag play data_file_name.bag”. Note that if a slow computer is used, users can try to play the data files at a lower speed, e.g. “rosbag play data_file_name.bag -r 0.5” plays the data file at half speed.
 
-Datasets can be downloaded at: http://www.frc.ri.cmu.edu/~jizhang03
+Datasets can be downloaded at: http://www.frc.ri.cmu.edu/~jizhang03/projects.htm
