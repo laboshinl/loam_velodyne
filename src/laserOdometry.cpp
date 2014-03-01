@@ -183,6 +183,85 @@ void TransformToEnd(pcl::PointXYZHSV *pi, pcl::PointXYZHSV *po, double startTime
   po->v = pi->v;
 }
 
+void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz, 
+                        float &ox, float &oy, float &oz)
+{
+  float srx = cos(lx)*cos(cx)*sin(ly)*sin(cz) - cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx);
+  ox = -asin(srx);
+
+  float srycrx = sin(lx)*(cos(cy)*sin(cz) - cos(cz)*sin(cx)*sin(cy)) + cos(lx)*sin(ly)*(cos(cy)*cos(cz) 
+               + sin(cx)*sin(cy)*sin(cz)) + cos(lx)*cos(ly)*cos(cx)*sin(cy);
+  float crycrx = cos(lx)*cos(ly)*cos(cx)*cos(cy) - cos(lx)*sin(ly)*(cos(cz)*sin(cy) 
+               - cos(cy)*sin(cx)*sin(cz)) - sin(lx)*(sin(cy)*sin(cz) + cos(cy)*cos(cz)*sin(cx));
+  oy = atan2(srycrx / cos(ox), crycrx / cos(ox));
+
+  float srzcrx = sin(cx)*(cos(lz)*sin(ly) - cos(ly)*sin(lx)*sin(lz)) + cos(cx)*sin(cz)*(cos(ly)*cos(lz) 
+               + sin(lx)*sin(ly)*sin(lz)) + cos(lx)*cos(cx)*cos(cz)*sin(lz);
+  float crzcrx = cos(lx)*cos(lz)*cos(cx)*cos(cz) - cos(cx)*sin(cz)*(cos(ly)*sin(lz) 
+               - cos(lz)*sin(lx)*sin(ly)) - sin(cx)*(sin(ly)*sin(lz) + cos(ly)*cos(lz)*sin(lx));
+  oz = atan2(srzcrx / cos(ox), crzcrx / cos(ox));
+}
+
+void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, float blz, 
+                       float alx, float aly, float alz, float &acx, float &acy, float &acz)
+{
+  float sbcx = sin(bcx);
+  float cbcx = cos(bcx);
+  float sbcy = sin(bcy);
+  float cbcy = cos(bcy);
+  float sbcz = sin(bcz);
+  float cbcz = cos(bcz);
+
+  float sblx = sin(blx);
+  float cblx = cos(blx);
+  float sbly = sin(bly);
+  float cbly = cos(bly);
+  float sblz = sin(blz);
+  float cblz = cos(blz);
+
+  float salx = sin(alx);
+  float calx = cos(alx);
+  float saly = sin(aly);
+  float caly = cos(aly);
+  float salz = sin(alz);
+  float calz = cos(alz);
+
+  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly) 
+            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
+            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+            - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
+  acx = -asin(srx);
+
+  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
+               + cbcx*sbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
+  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
+               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+               + cbcx*cbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
+  acy = atan2(srycrx / cos(acx), crycrx / cos(acx));
+  
+  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz) 
+               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx) 
+               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly) 
+               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx) 
+               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz 
+               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) 
+               + calx*cblx*salz*sblz);
+  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly) 
+               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx) 
+               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx) 
+               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) 
+               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
+               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
+               - calx*calz*cblx*sblz);
+  acz = atan2(srzcrx / cos(acx), crzcrx / cos(acx));
+}
+
 void laserCloudExtreCurHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudExtreCur2)
 {
   if (!systemInited) {
@@ -842,9 +921,8 @@ int main(int argc, char** argv)
     if (newLaserPoints) {
       float rx, ry, rz, tx, ty, tz;
       if (sweepEnd) {
-        rx = transformSum[0] - transform[0];
-        ry = transformSum[1] - transform[1] * 1.05;
-        rz = transformSum[2] - transform[2];
+        AccumulateRotation(transformSum[0], transformSum[1], transformSum[2], 
+                           -transform[0], -transform[1] * 1.05, -transform[2], rx, ry, rz);
 
         float x1 = cos(rz) * (transform[3] - imuShiftFromStartXLast) 
                  - sin(rz) * (transform[4] - imuShiftFromStartYLast);
@@ -860,9 +938,8 @@ int main(int argc, char** argv)
         ty = transformSum[4] - y2;
         tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);
 
-        rx += imuPitchLast - imuPitchStartLast;
-        ry += imuYawLast - imuYawStartLast;
-        rz += imuRollLast - imuRollStartLast;
+        PluginIMURotation(rx, ry, rz, imuPitchStartLast, imuYawStartLast, imuRollStartLast, 
+                          imuPitchLast, imuYawLast, imuRollLast, rx, ry, rz);
 
         int laserCloudCornerLastNum = laserCloudCornerLast->points.size();
         for (int i = 0; i < laserCloudCornerLastNum; i++) {
@@ -892,9 +969,8 @@ int main(int argc, char** argv)
         pubLaserCloudLast2.publish(laserCloudLast2);
 
       } else {
-        rx = transformSum[0] - transform[0];
-        ry = transformSum[1] - transform[1] * 1.05;
-        rz = transformSum[2] - transform[2];
+        AccumulateRotation(transformSum[0], transformSum[1], transformSum[2], 
+                           -transform[0], -transform[1] * 1.05, -transform[2], rx, ry, rz);
 
         float x1 = cos(rz) * (transform[3] - imuShiftFromStartXCur) 
                  - sin(rz) * (transform[4] - imuShiftFromStartYCur);
@@ -910,9 +986,8 @@ int main(int argc, char** argv)
         ty = transformSum[4] - y2;
         tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);
 
-        rx += imuPitchCur - imuPitchStartCur;
-        ry += imuYawCur - imuYawStartCur;
-        rz += imuRollCur - imuRollStartCur;
+        PluginIMURotation(rx, ry, rz, imuPitchStartCur, imuYawStartCur, imuRollStartCur, 
+                          imuPitchCur, imuYawCur, imuRollCur, rx, ry, rz);
       }
 
       geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz, -rx, -ry);

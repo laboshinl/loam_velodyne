@@ -54,13 +54,61 @@ void transformAssociateToMap()
   transformIncre[4] = -sin(transformSum[2]) * x2 + cos(transformSum[2]) * y2;
   transformIncre[5] = z2;
 
-  transformIncre[0] = transformBefMapped[0] - transformSum[0];
-  transformIncre[1] = transformBefMapped[1] - transformSum[1];
-  transformIncre[2] = transformBefMapped[2] - transformSum[2];
+  float sbcx = sin(transformSum[0]);
+  float cbcx = cos(transformSum[0]);
+  float sbcy = sin(transformSum[1]);
+  float cbcy = cos(transformSum[1]);
+  float sbcz = sin(transformSum[2]);
+  float cbcz = cos(transformSum[2]);
 
-  transformMapped[0] = transformAftMapped[0] - transformIncre[0];
-  transformMapped[1] = transformAftMapped[1] - transformIncre[1];
-  transformMapped[2] = transformAftMapped[2] - transformIncre[2];
+  float sblx = sin(transformBefMapped[0]);
+  float cblx = cos(transformBefMapped[0]);
+  float sbly = sin(transformBefMapped[1]);
+  float cbly = cos(transformBefMapped[1]);
+  float sblz = sin(transformBefMapped[2]);
+  float cblz = cos(transformBefMapped[2]);
+
+  float salx = sin(transformAftMapped[0]);
+  float calx = cos(transformAftMapped[0]);
+  float saly = sin(transformAftMapped[1]);
+  float caly = cos(transformAftMapped[1]);
+  float salz = sin(transformAftMapped[2]);
+  float calz = cos(transformAftMapped[2]);
+
+  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly) 
+            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
+            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+            - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
+  transformMapped[0] = -asin(srx);
+
+  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
+               + cbcx*sbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
+  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
+               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
+               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
+               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
+               + cbcx*cbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
+  transformMapped[1] = atan2(srycrx / cos(transformMapped[0]), crycrx / cos(transformMapped[0]));
+  
+  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz) 
+               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx) 
+               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly) 
+               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx) 
+               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz 
+               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) 
+               + calx*cblx*salz*sblz);
+  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly) 
+               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx) 
+               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx) 
+               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) 
+               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
+               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
+               - calx*calz*cblx*sblz);
+  transformMapped[2] = atan2(srzcrx / cos(transformMapped[0]), crzcrx / cos(transformMapped[0]));
 
   x1 = cos(transformMapped[2]) * transformIncre[3] - sin(transformMapped[2]) * transformIncre[4];
   y1 = sin(transformMapped[2]) * transformIncre[3] + cos(transformMapped[2]) * transformIncre[4];
