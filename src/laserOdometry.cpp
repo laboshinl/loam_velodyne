@@ -1010,7 +1010,7 @@ int main(int argc, char** argv)
     }
 
     status = ros::ok();
-    cvWaitKey(10);
+    cv::waitKey(10);
   }
 
   return 0;
