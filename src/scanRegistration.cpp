@@ -82,8 +82,8 @@ float imuShiftX[imuQueLength] = {0};
 float imuShiftY[imuQueLength] = {0};
 float imuShiftZ[imuQueLength] = {0};
 
-double imuAccuRoll = 0;
-double imuAccuPitch = 0;
+//double imuAccuRoll = 0;
+//double imuAccuPitch = 0;
 double imuAccuYaw = 0;
 
 void ShiftToStartIMU()
@@ -232,7 +232,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   float laserAngle = atan2(laserPointLast.x - laserPointFirst.x, laserPointLast.y - laserPointFirst.y);
 
   bool newSweep = false;
-  if (laserAngle * laserRotDir < 0 && timeLasted - timeStart > 0.1) {
+  if (laserAngle * laserRotDir < 0 && timeLasted - timeStart > 0.7) {
     laserRotDir *= -1;
     newSweep = true;
   }
@@ -637,10 +637,10 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
 
 void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
 {
-  /*double roll, pitch, yaw;
+  double roll, pitch, yaw;
   tf::Quaternion orientation;
   tf::quaternionMsgToTF(imuIn->orientation, orientation);
-  tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);*/
+  tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
   int imuPointerBack = imuPointerLast;
   imuPointerLast = (imuPointerLast + 1) % imuQueLength;
@@ -649,15 +649,15 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
 
   if (timeDiff < 0.1) {
 
-    imuAccuRoll += timeDiff * imuIn->angular_velocity.x;
-    imuAccuPitch += timeDiff * imuIn->angular_velocity.y;
+    //imuAccuRoll += timeDiff * imuIn->angular_velocity.x;
+    //imuAccuPitch += timeDiff * imuIn->angular_velocity.y;
     imuAccuYaw += timeDiff * imuIn->angular_velocity.z;
 
-    //imuRoll[imuPointerLast] = roll;
-    //imuPitch[imuPointerLast] = -pitch;
+    imuRoll[imuPointerLast] = roll;
+    imuPitch[imuPointerLast] = -pitch;
     //imuYaw[imuPointerLast] = -yaw;
-    imuRoll[imuPointerLast] = imuAccuRoll;
-    imuPitch[imuPointerLast] = -imuAccuPitch;
+    //imuRoll[imuPointerLast] = imuAccuRoll;
+    //imuPitch[imuPointerLast] = -imuAccuPitch;
     imuYaw[imuPointerLast] = -imuAccuYaw;
 
     //imuAccX[imuPointerLast] = -imuIn->linear_acceleration.y;
@@ -674,16 +674,16 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
-                                  ("/sync_scan_cloud_filtered", 1, laserCloudHandler);
+                                  ("/sync_scan_cloud_filtered", 2, laserCloudHandler);
 
   ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu> 
-                           ("/microstrain/imu", 1, imuHandler);
+                           ("/microstrain/imu", 5, imuHandler);
 
   ros::Publisher pubLaserCloudExtreCur = nh.advertise<sensor_msgs::PointCloud2> 
-                                         ("/laser_cloud_extre_cur", 1);
+                                         ("/laser_cloud_extre_cur", 2);
 
   ros::Publisher pubLaserCloudLast = nh.advertise<sensor_msgs::PointCloud2> 
-                                     ("/laser_cloud_last", 1);
+                                     ("/laser_cloud_last", 2);
 
   pubLaserCloudExtreCurPointer = &pubLaserCloudExtreCur;
   pubLaserCloudLastPointer = &pubLaserCloudLast;
