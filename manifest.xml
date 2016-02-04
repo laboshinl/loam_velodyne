@@ -1,8 +1,8 @@
 <package>
 
-  <description brief="loam_continuous">
+  <description brief="loam_velodyne">
 
-     Laser Odometry and Mapping (continuous spin version)
+     Laser Odometry and Mapping (velodyne version)
 
   </description>
   <author>Ji Zhang</author>
