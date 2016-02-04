@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 2.4.6)
 include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+project(Example)
+
+find_package(OpenCV 2)
+include_directories(${OpenCV_INCLUDE_DIRS})
+
 
 # Set the build type.  Options are:
 #  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
@@ -33,3 +38,8 @@ rosbuild_add_executable(scanRegistration src/scanRegistration.cpp)
 rosbuild_add_executable(laserOdometry src/laserOdometry.cpp)
 rosbuild_add_executable(laserMapping src/laserMapping.cpp)
 rosbuild_add_executable(transformMaintenance src/transformMaintenance.cpp)
+target_link_libraries(laserMapping ${OpenCV_LIBS})
+target_link_libraries(laserOdometry ${OpenCV_LIBS})
+target_link_libraries(scanRegistration ${OpenCV_LIBS})
+target_link_libraries(transformMaintenance ${OpenCV_LIBS})
+
