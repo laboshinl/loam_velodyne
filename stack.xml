@@ -10,7 +10,7 @@
   <author>Ji Zhang</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://wiki.ros.org/loam_continuous</url>
+  <url>http://wiki.ros.org/loam_velodyne</url>
   <depend stack="ros" />
   <depend stack="ros_comm" />
   <depend stack="common_msgs" />

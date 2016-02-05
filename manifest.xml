@@ -8,7 +8,7 @@
   <author>Ji Zhang</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://wiki.ros.org/loam_continuous</url>
+  <url>http://wiki.ros.org/loam_velodyne</url>
   <depend package="roscpp"/>
   <depend package="std_msgs"/>
   <depend package="sensor_msgs"/>
