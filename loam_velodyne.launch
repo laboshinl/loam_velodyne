@@ -3,7 +3,7 @@
   <arg name="rviz" default="true" />
 
   <node pkg="loam_velodyne" type="scanRegistration" name="scanRegistration" output="screen"/>
-  <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="screen"/>
+  <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="screen" respawn="true"/>
   <node pkg="loam_velodyne" type="laserMapping" name="laserMapping" output="screen"/>
   <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance" output="screen"/>
 

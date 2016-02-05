@@ -212,7 +212,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(*laserCloudIn,*laserCloudIn, indices);
   int cloudSize = laserCloudIn->points.size();
-  ROS_INFO ("Size: %d", cloudSize);
+  //ROS_INFO ("Size: %d", cloudSize);
   float startOri = -atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
   float endOri = -atan2(laserCloudIn->points[cloudSize - 1].y, 
                         laserCloudIn->points[cloudSize - 1].x) + 2 * PI;

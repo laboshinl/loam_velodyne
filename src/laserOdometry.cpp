@@ -258,7 +258,8 @@ void laserCloudSharpHandler(const sensor_msgs::PointCloud2ConstPtr& cornerPoints
 
   cornerPointsSharp->clear();
   pcl::fromROSMsg(*cornerPointsSharp2, *cornerPointsSharp);
-
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*cornerPointsSharp,*cornerPointsSharp, indices);
   newCornerPointsSharp = true;
 }
 
@@ -268,7 +269,8 @@ void laserCloudLessSharpHandler(const sensor_msgs::PointCloud2ConstPtr& cornerPo
 
   cornerPointsLessSharp->clear();
   pcl::fromROSMsg(*cornerPointsLessSharp2, *cornerPointsLessSharp);
-
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*cornerPointsLessSharp,*cornerPointsLessSharp, indices);
   newCornerPointsLessSharp = true;
 }
 
@@ -278,7 +280,8 @@ void laserCloudFlatHandler(const sensor_msgs::PointCloud2ConstPtr& surfPointsFla
 
   surfPointsFlat->clear();
   pcl::fromROSMsg(*surfPointsFlat2, *surfPointsFlat);
-
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*surfPointsFlat,*surfPointsFlat, indices);
   newSurfPointsFlat = true;
 }
 
@@ -288,7 +291,8 @@ void laserCloudLessFlatHandler(const sensor_msgs::PointCloud2ConstPtr& surfPoint
 
   surfPointsLessFlat->clear();
   pcl::fromROSMsg(*surfPointsLessFlat2, *surfPointsLessFlat);
-
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*surfPointsLessFlat,*surfPointsLessFlat, indices);
   newSurfPointsLessFlat = true;
 }
 
@@ -298,7 +302,8 @@ void laserCloudFullResHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloud
 
   laserCloudFullRes->clear();
   pcl::fromROSMsg(*laserCloudFullRes2, *laserCloudFullRes);
-
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*laserCloudFullRes,*laserCloudFullRes, indices);
   newLaserCloudFullRes = true;
 }
 
@@ -327,6 +332,7 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
 
   newImuTrans = true;
 }
+
 
 int main(int argc, char** argv)
 {
@@ -415,6 +421,9 @@ int main(int argc, char** argv)
         surfPointsLessFlat = laserCloudSurfLast;
         laserCloudSurfLast = laserCloudTemp;
 
+//        std::vector<int> indices;
+//        pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
+
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
 
@@ -450,6 +459,8 @@ int main(int argc, char** argv)
       transform[5] -= imuVeloFromStartZ * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+        std::vector<int> indices;
+        pcl::removeNaNFromPointCloud(*cornerPointsSharp,*cornerPointsSharp, indices);
         int cornerPointsSharpNum = cornerPointsSharp->points.size();
         int surfPointsFlatNum = surfPointsFlat->points.size();
         for (int iterCount = 0; iterCount < 25; iterCount++) {
@@ -457,8 +468,9 @@ int main(int argc, char** argv)
             TransformToStart(&cornerPointsSharp->points[i], &pointSel);
 
             if (iterCount % 5 == 0) {
+              std::vector<int> indices;
+              pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
               kdtreeCornerLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
-
               int closestPointInd = -1, minPointInd2 = -1;
               if (pointSearchSqDis[0] < 25) {
                 closestPointInd = pointSearchInd[0];
@@ -573,7 +585,6 @@ int main(int argc, char** argv)
 
             if (iterCount % 5 == 0) {
               kdtreeSurfLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
-
               int closestPointInd = -1, minPointInd2 = -1, minPointInd3 = -1;
               if (pointSearchSqDis[0] < 25) {
                 closestPointInd = pointSearchInd[0];
@@ -883,6 +894,8 @@ int main(int argc, char** argv)
       laserCloudCornerLastNum = laserCloudCornerLast->points.size();
       laserCloudSurfLastNum = laserCloudSurfLast->points.size();
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+//        std::vector<int> indices;
+//        pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
       }
