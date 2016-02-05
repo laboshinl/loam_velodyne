@@ -20,6 +20,9 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
+#include <iostream>
+using namespace std;
+
 const double PI = 3.1415926;
 
 const float scanPeriod = 0.1;
@@ -192,6 +195,9 @@ void AccumulateIMUShift()
 
 void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
 {
+  //cout << "handled";
+  //ROS_INFO ("iter: %d, deltaR: %f, deltaT: %f", iterCount, deltaR, deltaT);
+  //ROS_INFO ("handled");
   if (!systemInited) {
     systemInitCount++;
     if (systemInitCount >= systemDelay) {
@@ -201,10 +207,12 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   }
   
   double timeScanCur = laserCloudIn2->header.stamp.toSec();
-
+  //ROS_INFO ("time: %d", timeScanCur);
   pcl::fromROSMsg(*laserCloudIn2, *laserCloudIn);
+  std::vector<int> indices;
+  pcl::removeNaNFromPointCloud(*laserCloudIn,*laserCloudIn, indices);
   int cloudSize = laserCloudIn->points.size();
-
+  ROS_INFO ("Size: %d", cloudSize);
   float startOri = -atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
   float endOri = -atan2(laserCloudIn->points[cloudSize - 1].y, 
                         laserCloudIn->points[cloudSize - 1].x) + 2 * PI;
@@ -214,19 +222,36 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   } else if (endOri - startOri < PI) {
     endOri += 2 * PI;
   }
-
   bool halfPassed = false;
+  int count = cloudSize;
   pcl::PointXYZI point;
   for (int i = 0; i < cloudSize; i++) {
+//    ROS_INFO ("point num %i", i);
     point.x = laserCloudIn->points[i].y;
     point.y = laserCloudIn->points[i].z;
     point.z = laserCloudIn->points[i].x;
 
     float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / PI;
-    int scanID = int(0.75 * angle + 0.5) + 7;
-    if (angle < 0) {
-      scanID--;
+//    ROS_INFO ("angle %i", int(angle));
+    int scanID;// = int(0.75 * angle + 0.5) + 11;
+//    int y=floor(angle);
+//    if ((angle-y)>=0,5)
+//      y++;
+    int angle2 = int(angle + (angle<0.0?-0.5:+0.5));
+    if (angle2 > 0){
+      scanID = angle2;
     }
+    else {
+      scanID = abs(angle2) - 1;
+    }
+    if (scanID > 15 ){
+      count--;
+      continue;
+    }
+//    ROS_INFO ("angle %i", int(angle + (angle<0.0?-0.5:+0.5)) );
+//    if (angle < 0) {
+//      scanID--;
+//    }
 
     float ori = -atan2(point.x, point.z);
     if (!halfPassed) {
@@ -298,7 +323,6 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
         imuShiftYCur = imuShiftY[imuPointerFront] * ratioFront + imuShiftY[imuPointerBack] * ratioBack;
         imuShiftZCur = imuShiftZ[imuPointerFront] * ratioFront + imuShiftZ[imuPointerBack] * ratioBack;
       }
-
       if (i == 0) {
         imuRollStart = imuRollCur;
         imuPitchStart = imuPitchCur;
@@ -317,14 +341,16 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
         TransformToStartIMU(&point);
       }
     }
-
+    //ROS_INFO ("3.5");
+   // ROS_INFO ("Scan Id %i", scanID);
     laserCloudScans[scanID]->push_back(point);
   }
-
+  cloudSize = count;
+  //ROS_INFO ("1");
   for (int i = 0; i < 16; i++) {
     *laserCloud += *laserCloudScans[i];
   }
-
+  //ROS_INFO ("2");
   int scanCount = -1;
   for (int i = 5; i < cloudSize - 5; i++) {
     float diffX = laserCloud->points[i - 5].x + laserCloud->points[i - 4].x 
@@ -345,7 +371,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
                 + laserCloud->points[i + 1].z + laserCloud->points[i + 2].z
                 + laserCloud->points[i + 3].z + laserCloud->points[i + 4].z
                 + laserCloud->points[i + 5].z;
-    
+    //ROS_INFO ("index %i", i);
     cloudCurvature[i] = diffX * diffX + diffY * diffY + diffZ * diffZ;
     cloudSortInd[i] = i;
     cloudNeighborPicked[i] = 0;
@@ -360,6 +386,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
       }
     }
   }
+  //ROS_INFO ("4");
   scanStartInd[0] = 5;
   scanEndInd[15] = cloudSize - 5;
 
@@ -608,6 +635,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   for (int i = 0; i < 16; i++) {
     laserCloudScans[i]->points.clear();
   }
+ // ROS_INFO ("Released");
 }
 
 void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
@@ -644,7 +672,7 @@ int main(int argc, char** argv)
   }
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
-                                  ("/velodyne_cloud", 2, laserCloudHandler);
+                                  ("/velodyne_points", 2, laserCloudHandler);
 
   ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu> ("/imu/data", 50, imuHandler);
 
