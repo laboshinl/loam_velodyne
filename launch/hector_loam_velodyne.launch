@@ -5,6 +5,7 @@
   <node pkg="loam_velodyne" type="scanRegistration" name="scanRegistration" output="screen">
       <remap from="/velodyne_points" to="/velodyne_points" />
       <remap from="/imu/data" to="/raw_imu" />  
+      <!-- <remap from="/imu/data" to="/djiros/imu" />   -->
   </node>
 
   <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="screen" respawn="true"/>
