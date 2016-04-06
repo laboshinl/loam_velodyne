@@ -5,7 +5,7 @@ $ cd ~/catkin_ws/src/
 $ git clone https://github.com/laboshinl/loam_velodyne.git
 $ cd ~/catkin_ws
 $ catkin_make -DCMAKE_BUILD_TYPE=Release 
-$ source ~/catkin_ws/devel/setub.bash
+$ source ~/catkin_ws/devel/setup.bash
 ```
 
 Running:
