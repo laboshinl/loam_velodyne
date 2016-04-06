@@ -1,16 +1,16 @@
-Installation:
+How to build with catkin:
 
 ```
-cd /opt/ros/indigo/stacks/
-git clone https://github.com/laboshinl/loam_velodyne.git
-cd loam_velodyne
-cmake .
-rosmake
+$ cd ~/catkin_ws/src/
+$ git clone https://github.com/laboshinl/loam_velodyne.git
+$ cd ~/catkin_ws
+$ catkin_make -DCMAKE_BUILD_TYPE=Release 
+$ source ~/catkin_ws/devel/setub.bash
 ```
 
 Running:
 ```
-roslaunch loam_velodyne.launch
+roslaunch ~/catkin_ws/src/loam_velodyne/launch/loam_velodyne.launch
 ```
 
 In second terminal play sample velodyne data from rosbag (http://www.frc.ri.cmu.edu/~jizhang03/Datasets/nsh_indoor_outdoor.bag):
