@@ -25,6 +25,6 @@ rosbag play ~/Downloads/nsh_indoor_outdoor.bag
 
 Or read from velodyne pcap (http://midas3.kitware.com/midas/download/item/215411):
 ```
-roslaunch velodyne_pointcloud 32e_points.launch calibration:=/home/laboshinl/calib.yaml pcap:="/home/laboshinl/Downloads/velodyne.pcap"
+roslaunch velodyne_pointcloud VLP16_points.launch pcap:="/home/laboshinl/Downloads/velodyne.pcap"
 ```
 
