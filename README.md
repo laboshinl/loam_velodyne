@@ -1,3 +1,6 @@
+Tested with ROS Indigo and Velodyne VLP16.
+
+
 How to build with catkin:
 
 ```
