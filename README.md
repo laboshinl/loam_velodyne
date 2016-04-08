@@ -1,4 +1,4 @@
-:white_check_mark: Tested with ROS Indigo and Velodyne VLP16.
+:white_check_mark: Tested with ROS Indigo and Velodyne VLP16. [(Screencast)](https://youtu.be/o1cLXY-Es54)
 
 All sources were taken from [ROS documentation](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html)
 
