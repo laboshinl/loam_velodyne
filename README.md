@@ -2,6 +2,8 @@
 
 All sources were taken from [ROS documentation](http://docs.ros.org/indigo/api/loam_velodyne/html/files.html)
 
+Ask questions [here](https://github.com/laboshinl/loam_velodyne/issues/3).
+
 
 How to build with catkin:
 
