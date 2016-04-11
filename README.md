@@ -18,9 +18,9 @@ Running:
 roslaunch ~/catkin_ws/src/loam_velodyne/launch/loam_velodyne.launch
 ```
 
-In second terminal play sample velodyne data from rosbag (http://www.frc.ri.cmu.edu/~jizhang03/Datasets/nsh_indoor_outdoor.bag):
+In second terminal play sample velodyne data from rosbag (https://db.tt/t2r39mjZ):
 ```
-rosbag play ~/Downloads/nsh_indoor_outdoor.bag 
+rosbag play ~/Downloads/velodyne.bag 
 ```
 
 Or read from velodyne pcap (http://midas3.kitware.com/midas/download/item/215411):
