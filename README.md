@@ -18,12 +18,12 @@ Running:
 roslaunch ~/catkin_ws/src/loam_velodyne/launch/loam_velodyne.launch
 ```
 
-In second terminal play sample velodyne data from rosbag (https://db.tt/t2r39mjZ):
+In second terminal play sample velodyne data from [VLP16 rosbag](https://db.tt/t2r39mjZ):
 ```
 rosbag play ~/Downloads/velodyne.bag 
 ```
 
-Or read from velodyne pcap (http://midas3.kitware.com/midas/download/item/215411):
+Or read from velodyne [VLP16 sample pcap](https://midas3.kitware.com/midas/folder/12979):
 ```
 roslaunch velodyne_pointcloud VLP16_points.launch pcap:="/home/laboshinl/Downloads/velodyne.pcap"
 ```
