@@ -48,10 +48,6 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsLessFlat(new pcl::PointCloud<pcl:
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerLast(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfLast(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudOri(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr pointSearchCornerLast(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr pointSearchSurfLast(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr pointProjCornerLast(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr pointProjSurfLast(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr coeffSel(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudFullRes(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr imuTrans(new pcl::PointCloud<pcl::PointXYZ>());
@@ -366,14 +362,6 @@ int main(int argc, char** argv)
   ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2> 
                                         ("/velodyne_cloud_3", 2);
 
-  //ros::Publisher pub1 = nh.advertise<sensor_msgs::PointCloud2> ("/pc1", 2);
-
-  //ros::Publisher pub2 = nh.advertise<sensor_msgs::PointCloud2> ("/pc2", 2);
-
-  //ros::Publisher pub3 = nh.advertise<sensor_msgs::PointCloud2> ("/pc3", 2);
-
-  //ros::Publisher pub4 = nh.advertise<sensor_msgs::PointCloud2> ("/pc4", 2);
-
   ros::Publisher pubLaserOdometry = nh.advertise<nav_msgs::Odometry> ("/laser_odom_to_init", 5);
   nav_msgs::Odometry laserOdometry;
   laserOdometry.header.frame_id = "/camera_init";
@@ -421,9 +409,6 @@ int main(int argc, char** argv)
         surfPointsLessFlat = laserCloudSurfLast;
         laserCloudSurfLast = laserCloudTemp;
 
-//        std::vector<int> indices;
-//        pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
-
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
 
@@ -440,7 +425,6 @@ int main(int argc, char** argv)
         pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
 
         transformSum[0] += imuPitchStart;
-        //transformSum[1] += imuYawStart;
         transformSum[2] += imuRollStart;
 
         systemInited = true;
@@ -448,10 +432,6 @@ int main(int argc, char** argv)
       }
 
       laserCloudOri->clear();
-      //pointSearchCornerLast->clear();
-      //pointProjCornerLast->clear();
-      //pointSearchSurfLast->clear();
-      //pointProjSurfLast->clear();
       coeffSel->clear();
 
       transform[3] -= imuVeloFromStartX * scanPeriod;
@@ -572,9 +552,6 @@ int main(int argc, char** argv)
 
               if (s > 0.1 && ld2 != 0) {
                 laserCloudOri->push_back(cornerPointsSharp->points[i]);
-                //pointSearchCornerLast->push_back(tripod1);
-                //pointSearchCornerLast->push_back(tripod2);
-                //pointProjCornerLast->push_back(pointProj);
                 coeffSel->push_back(coeff);
               }
             }
@@ -685,10 +662,6 @@ int main(int argc, char** argv)
 
               if (s > 0.1 && pd2 != 0) {
                 laserCloudOri->push_back(surfPointsFlat->points[i]);
-                //pointSearchSurfLast->push_back(tripod1);
-                //pointSearchSurfLast->push_back(tripod2);
-                //pointSearchSurfLast->push_back(tripod3);
-                //pointProjSurfLast->push_back(pointProj);
                 coeffSel->push_back(coeff);
               }
             }
@@ -709,7 +682,7 @@ int main(int argc, char** argv)
             pointOri = laserCloudOri->points[i];
             coeff = coeffSel->points[i];
 
-            float s = 1; //10 * (pointOri.intensity - int(pointOri.intensity));
+            float s = 1;
 
             float srx = sin(s * transform[0]);
             float crx = cos(s * transform[0]);
@@ -794,8 +767,6 @@ int main(int argc, char** argv)
             cv::Mat matX2(6, 1, CV_32F, cv::Scalar::all(0));
             matX.copyTo(matX2);
             matX = matP * matX2;
-
-            //ROS_INFO ("laser odometry degenerate");
           }
 
           transform[0] += matX.at<float>(0, 0);
@@ -815,8 +786,6 @@ int main(int argc, char** argv)
           if (deltaR < 0.1 && deltaT < 0.1) {
             break;
           }
-
-          //ROS_INFO ("iter: %d, deltaR: %f, deltaT: %f", iterCount, deltaR, deltaT);
         }
       }
 
@@ -894,8 +863,6 @@ int main(int argc, char** argv)
       laserCloudCornerLastNum = laserCloudCornerLast->points.size();
       laserCloudSurfLastNum = laserCloudSurfLast->points.size();
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
-//        std::vector<int> indices;
-//        pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
       }
@@ -921,30 +888,6 @@ int main(int argc, char** argv)
         laserCloudFullRes3.header.frame_id = "/camera";
         pubLaserCloudFullRes.publish(laserCloudFullRes3);
       }
-
-      /*sensor_msgs::PointCloud2 pc12;
-      pcl::toROSMsg(*pointSearchCornerLast, pc12);
-      pc12.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
-      pc12.header.frame_id = "/camera";
-      pub1.publish(pc12);
-
-      sensor_msgs::PointCloud2 pc22;
-      pcl::toROSMsg(*pointSearchSurfLast, pc22);
-      pc22.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
-      pc22.header.frame_id = "/camera";
-      pub2.publish(pc22);
-
-      sensor_msgs::PointCloud2 pc32;
-      pcl::toROSMsg(*pointProjCornerLast, pc32);
-      pc32.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
-      pc32.header.frame_id = "/camera";
-      pub3.publish(pc32);
-
-      sensor_msgs::PointCloud2 pc42;
-      pcl::toROSMsg(*pointProjSurfLast, pc42);
-      pc42.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
-      pc42.header.frame_id = "/camera";
-      pub4.publish(pc42);*/
     }
 
     status = ros::ok();

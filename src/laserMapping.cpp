@@ -55,9 +55,6 @@ pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfStack(new pcl::PointCloud<pcl
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerStack2(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfStack2(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudOri(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSel(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCorr(new pcl::PointCloud<pcl::PointXYZI>());
-//pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudProj(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr coeffSel(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurround(new pcl::PointCloud<pcl::PointXYZI>());
 pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurround2(new pcl::PointCloud<pcl::PointXYZI>());
@@ -204,9 +201,6 @@ void transformUpdate()
     transformTobeMapped[2] = 0.998 * transformTobeMapped[2] + 0.002 * imuRollLast;
   }
 
-  //transformTobeMapped[0] = 0.998 * transformTobeMapped[0] + 0.002 * transformSum[0];
-  //transformTobeMapped[2] = 0.998 * transformTobeMapped[2] + 0.002 * transformSum[2];
-
   for (int i = 0; i < 6; i++) {
     transformBefMapped[i] = transformSum[i];
     transformAftMapped[i] = transformTobeMapped[i];
@@ -340,14 +334,6 @@ int main(int argc, char** argv)
 
   ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2> 
                                         ("/velodyne_cloud_registered", 2);
-
-  //ros::Publisher pub1 = nh.advertise<sensor_msgs::PointCloud2> ("/pc1", 2);
-
-  //ros::Publisher pub2 = nh.advertise<sensor_msgs::PointCloud2> ("/pc2", 2);
-
-  //ros::Publisher pub1 = nh.advertise<sensor_msgs::PointCloud2> ("/pc3", 2);
-
-  //ros::Publisher pub2 = nh.advertise<sensor_msgs::PointCloud2> ("/pc4", 2);
 
   ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry> ("/aft_mapped_to_init", 5);
   nav_msgs::Odometry odomAftMapped;
@@ -699,9 +685,6 @@ int main(int argc, char** argv)
 
           for (int iterCount = 0; iterCount < 10; iterCount++) {
             laserCloudOri->clear();
-            //laserCloudSel->clear();
-            //laserCloudCorr->clear();
-            //laserCloudProj->clear();
             coeffSel->clear();
 
             for (int i = 0; i < laserCloudCornerStackNum; i++) {
@@ -805,13 +788,6 @@ int main(int argc, char** argv)
 
                   if (s > 0.1) {
                     laserCloudOri->push_back(pointOri);
-                    //laserCloudSel->push_back(pointSel);
-                    //laserCloudProj->push_back(pointProj);
-                    //laserCloudCorr->push_back(laserCloudCornerFromMap->points[pointSearchInd[0]]);
-                    //laserCloudCorr->push_back(laserCloudCornerFromMap->points[pointSearchInd[1]]);
-                    //laserCloudCorr->push_back(laserCloudCornerFromMap->points[pointSearchInd[2]]);
-                    //laserCloudCorr->push_back(laserCloudCornerFromMap->points[pointSearchInd[3]]);
-                    //laserCloudCorr->push_back(laserCloudCornerFromMap->points[pointSearchInd[4]]);
                     coeffSel->push_back(coeff);
                   }
                 }
@@ -870,13 +846,6 @@ int main(int argc, char** argv)
 
                   if (s > 0.1) {
                     laserCloudOri->push_back(pointOri);
-                    //laserCloudSel->push_back(pointSel);
-                    //laserCloudProj->push_back(pointProj);
-                    //laserCloudCorr->push_back(laserCloudSurfFromMap->points[pointSearchInd[0]]);
-                    //laserCloudCorr->push_back(laserCloudSurfFromMap->points[pointSearchInd[1]]);
-                    //laserCloudCorr->push_back(laserCloudSurfFromMap->points[pointSearchInd[2]]);
-                    //laserCloudCorr->push_back(laserCloudSurfFromMap->points[pointSearchInd[3]]);
-                    //laserCloudCorr->push_back(laserCloudSurfFromMap->points[pointSearchInd[4]]);
                     coeffSel->push_back(coeff);
                   }
                 }
@@ -954,12 +923,10 @@ int main(int argc, char** argv)
               matP = matV.inv() * matV2;
             }
 
-            if (isDegenerate /*&& 0*/) {
+            if (isDegenerate) {
               cv::Mat matX2(6, 1, CV_32F, cv::Scalar::all(0));
               matX.copyTo(matX2);
               matX = matP * matX2;
-
-              //ROS_INFO ("laser mapping degenerate");
             }
 
             transformTobeMapped[0] += matX.at<float>(0, 0);
@@ -979,8 +946,6 @@ int main(int argc, char** argv)
             if (deltaR < 0.05 && deltaT < 0.05) {
               break;
             }
-
-            //ROS_INFO ("iter: %d, deltaR: %f, deltaT: %f", iterCount, deltaR, deltaT);
           }
 
           transformUpdate();
@@ -1102,29 +1067,6 @@ int main(int argc, char** argv)
                                              transformAftMapped[4], transformAftMapped[5]));
         tfBroadcaster.sendTransform(aftMappedTrans);
 
-        /*sensor_msgs::PointCloud2 pc12;
-        pcl::toROSMsg(*laserCloudCornerStack, pc12);
-        pc12.header.stamp = ros::Time().fromSec(timeLaserOdometry);
-        pc12.header.frame_id = "/camera";
-        pub1.publish(pc12);
-
-        sensor_msgs::PointCloud2 pc22;
-        pcl::toROSMsg(*laserCloudSurfStack, pc22);
-        pc22.header.stamp = ros::Time().fromSec(timeLaserOdometry);
-        pc22.header.frame_id = "/camera";
-        pub2.publish(pc22);
-
-        sensor_msgs::PointCloud2 pc32;
-        pcl::toROSMsg(*laserCloudSel, pc32);
-        pc32.header.stamp = ros::Time().fromSec(timeLaserOdometry);
-        pc32.header.frame_id = "/camera";
-        pub3.publish(pc32);
-
-        sensor_msgs::PointCloud2 pc42;
-        pcl::toROSMsg(*laserCloudProj, pc42);
-        pc42.header.stamp = ros::Time().fromSec(timeLaserOdometry);
-        pc42.header.frame_id = "/camera";
-        pub4.publish(pc42);*/
       }
     }
 
