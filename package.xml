@@ -56,6 +56,8 @@
   <run_depend>std_msgs</run_depend>
   <run_depend>tf</run_depend>
 
+  <test_depend>rostest</test_depend>
+  <test_depend>rosbag</test_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
