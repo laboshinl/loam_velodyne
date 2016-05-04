@@ -12,7 +12,6 @@
 #include <tf/transform_broadcaster.h>
 
 #include <opencv/cv.h>
-#include <opencv2/highgui/highgui.hpp>
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
