@@ -928,12 +928,14 @@ int main(int argc, char** argv)
             transformTobeMapped[4] += matX.at<float>(4, 0);
             transformTobeMapped[5] += matX.at<float>(5, 0);
 
-            float deltaR = sqrt(matX.at<float>(0, 0) * 180 / M_PI * matX.at<float>(0, 0) * 180 / M_PI
-                         + matX.at<float>(1, 0) * 180 / M_PI * matX.at<float>(1, 0) * 180 / M_PI
-                         + matX.at<float>(2, 0) * 180 / M_PI * matX.at<float>(2, 0) * 180 / M_PI);
-            float deltaT = sqrt(matX.at<float>(3, 0) * 100 * matX.at<float>(3, 0) * 100
-                         + matX.at<float>(4, 0) * 100 * matX.at<float>(4, 0) * 100
-                         + matX.at<float>(5, 0) * 100 * matX.at<float>(5, 0) * 100);
+            float deltaR = sqrt(
+                                pow(rad2deg(matX.at<float>(0, 0)), 2) +
+                                pow(rad2deg(matX.at<float>(1, 0)), 2) +
+                                pow(rad2deg(matX.at<float>(2, 0)), 2));
+            float deltaT = sqrt(
+                                pow(matX.at<float>(3, 0) * 100, 2) +
+                                pow(matX.at<float>(4, 0) * 100, 2) +
+                                pow(matX.at<float>(5, 0) * 100, 2));
 
             if (deltaR < 0.05 && deltaT < 0.05) {
               break;
