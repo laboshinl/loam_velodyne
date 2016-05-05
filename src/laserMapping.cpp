@@ -21,6 +21,8 @@
 
 const double PI = 3.1415926;
 
+typedef pcl::PointXYZI PointType;
+
 const float scanPeriod = 0.1;
 
 const int stackFrameNum = 1;
@@ -47,26 +49,26 @@ const int laserCloudNum = laserCloudWidth * laserCloudHeight * laserCloudDepth;
 int laserCloudValidInd[125];
 int laserCloudSurroundInd[125];
 
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerLast(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfLast(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerStack(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfStack(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerStack2(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfStack2(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudOri(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr coeffSel(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurround(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurround2(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerFromMap(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfFromMap(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudFullRes(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerArray[laserCloudNum];
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfArray[laserCloudNum];
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerArray2[laserCloudNum];
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfArray2[laserCloudNum];
+pcl::PointCloud<PointType>::Ptr laserCloudCornerLast(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurfLast(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudCornerStack(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurfStack(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudCornerStack2(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurfStack2(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudOri(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr coeffSel(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurround(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurround2(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMap(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMap(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudFullRes(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudCornerArray[laserCloudNum];
+pcl::PointCloud<PointType>::Ptr laserCloudSurfArray[laserCloudNum];
+pcl::PointCloud<PointType>::Ptr laserCloudCornerArray2[laserCloudNum];
+pcl::PointCloud<PointType>::Ptr laserCloudSurfArray2[laserCloudNum];
 
-pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeCornerFromMap(new pcl::KdTreeFLANN<pcl::PointXYZI>());
-pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeSurfFromMap(new pcl::KdTreeFLANN<pcl::PointXYZI>());
+pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerFromMap(new pcl::KdTreeFLANN<PointType>());
+pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap(new pcl::KdTreeFLANN<PointType>());
 
 float transformSum[6] = {0};
 float transformIncre[6] = {0};
@@ -206,7 +208,7 @@ void transformUpdate()
   }
 }
 
-void pointAssociateToMap(pcl::PointXYZI *pi, pcl::PointXYZI *po)
+void pointAssociateToMap(PointType *pi, PointType *po)
 {
   float x1 = cos(transformTobeMapped[2]) * pi->x
            - sin(transformTobeMapped[2]) * pi->y;
@@ -226,7 +228,7 @@ void pointAssociateToMap(pcl::PointXYZI *pi, pcl::PointXYZI *po)
   po->intensity = pi->intensity;
 }
 
-void pointAssociateTobeMapped(pcl::PointXYZI *pi, pcl::PointXYZI *po)
+void pointAssociateTobeMapped(PointType *pi, PointType *po)
 {
   float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
            - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
@@ -347,7 +349,7 @@ int main(int argc, char** argv)
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;
 
-  pcl::PointXYZI pointOri, pointSel, pointProj, coeff;
+  PointType pointOri, pointSel, pointProj, coeff;
 
   cv::Mat matA0(5, 3, CV_32F, cv::Scalar::all(0));
   cv::Mat matB0(5, 1, CV_32F, cv::Scalar::all(-1));
@@ -360,20 +362,20 @@ int main(int argc, char** argv)
   bool isDegenerate = false;
   cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
 
-  pcl::VoxelGrid<pcl::PointXYZI> downSizeFilterCorner;
+  pcl::VoxelGrid<PointType> downSizeFilterCorner;
   downSizeFilterCorner.setLeafSize(0.2, 0.2, 0.2);
 
-  pcl::VoxelGrid<pcl::PointXYZI> downSizeFilterSurf;
+  pcl::VoxelGrid<PointType> downSizeFilterSurf;
   downSizeFilterSurf.setLeafSize(0.4, 0.4, 0.4);
 
-  pcl::VoxelGrid<pcl::PointXYZI> downSizeFilterMap;
+  pcl::VoxelGrid<PointType> downSizeFilterMap;
   downSizeFilterMap.setLeafSize(0.6, 0.6, 0.6);
 
   for (int i = 0; i < laserCloudNum; i++) {
-    laserCloudCornerArray[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
-    laserCloudSurfArray[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
-    laserCloudCornerArray2[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
-    laserCloudSurfArray2[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
+    laserCloudCornerArray[i].reset(new pcl::PointCloud<PointType>());
+    laserCloudSurfArray[i].reset(new pcl::PointCloud<PointType>());
+    laserCloudCornerArray2[i].reset(new pcl::PointCloud<PointType>());
+    laserCloudSurfArray2[i].reset(new pcl::PointCloud<PointType>());
   }
 
   int frameCount = stackFrameNum - 1;
@@ -412,7 +414,7 @@ int main(int argc, char** argv)
       if (frameCount >= stackFrameNum) {
         frameCount = 0;
 
-        pcl::PointXYZI pointOnYAxis;
+        PointType pointOnYAxis;
         pointOnYAxis.x = 0.0;
         pointOnYAxis.y = 10.0;
         pointOnYAxis.z = 0.0;
@@ -430,9 +432,9 @@ int main(int argc, char** argv)
           for (int j = 0; j < laserCloudHeight; j++) {
             for (int k = 0; k < laserCloudDepth; k++) {
               int i = laserCloudWidth - 1;
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeCornerPointer =
               laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeSurfPointer =
               laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               for (; i >= 1; i--) {
                 laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
@@ -457,9 +459,9 @@ int main(int argc, char** argv)
           for (int j = 0; j < laserCloudHeight; j++) {
             for (int k = 0; k < laserCloudDepth; k++) {
               int i = 0;
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeCornerPointer =
               laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeSurfPointer =
               laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               for (; i < laserCloudWidth - 1; i++) {
                 laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
@@ -484,9 +486,9 @@ int main(int argc, char** argv)
           for (int i = 0; i < laserCloudWidth; i++) {
             for (int k = 0; k < laserCloudDepth; k++) {
               int j = laserCloudHeight - 1;
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeCornerPointer =
               laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeSurfPointer =
               laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               for (; j >= 1; j--) {
                 laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
@@ -511,9 +513,9 @@ int main(int argc, char** argv)
           for (int i = 0; i < laserCloudWidth; i++) {
             for (int k = 0; k < laserCloudDepth; k++) {
               int j = 0;
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeCornerPointer =
               laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeSurfPointer =
               laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               for (; j < laserCloudHeight - 1; j++) {
                 laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
@@ -538,9 +540,9 @@ int main(int argc, char** argv)
           for (int i = 0; i < laserCloudWidth; i++) {
             for (int j = 0; j < laserCloudHeight; j++) {
               int k = laserCloudDepth - 1;
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeCornerPointer =
               laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeSurfPointer =
               laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               for (; k >= 1; k--) {
                 laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
@@ -565,9 +567,9 @@ int main(int argc, char** argv)
           for (int i = 0; i < laserCloudWidth; i++) {
             for (int j = 0; j < laserCloudHeight; j++) {
               int k = 0;
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeCornerPointer =
               laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
-              pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer = 
+              pcl::PointCloud<PointType>::Ptr laserCloudCubeSurfPointer =
               laserCloudSurfArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k];
               for (; k < laserCloudDepth - 1; k++) {
                 laserCloudCornerArray[i + laserCloudWidth * j + laserCloudWidth * laserCloudHeight * k] =
@@ -999,7 +1001,7 @@ int main(int argc, char** argv)
           downSizeFilterSurf.setInputCloud(laserCloudSurfArray[ind]);
           downSizeFilterSurf.filter(*laserCloudSurfArray2[ind]);
 
-          pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudTemp = laserCloudCornerArray[ind];
+          pcl::PointCloud<PointType>::Ptr laserCloudTemp = laserCloudCornerArray[ind];
           laserCloudCornerArray[ind] = laserCloudCornerArray2[ind];
           laserCloudCornerArray2[ind] = laserCloudTemp;
 

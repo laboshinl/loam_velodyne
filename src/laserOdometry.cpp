@@ -19,6 +19,8 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
+typedef pcl::PointXYZI PointType;
+
 const double PI = 3.1415926;
 
 const float scanPeriod = 0.1;
@@ -40,18 +42,18 @@ bool newSurfPointsLessFlat = false;
 bool newLaserCloudFullRes = false;
 bool newImuTrans = false;
 
-pcl::PointCloud<pcl::PointXYZI>::Ptr cornerPointsSharp(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr cornerPointsLessSharp(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsFlat(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsLessFlat(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCornerLast(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudSurfLast(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudOri(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr coeffSel(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudFullRes(new pcl::PointCloud<pcl::PointXYZI>());
+pcl::PointCloud<PointType>::Ptr cornerPointsSharp(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr cornerPointsLessSharp(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr surfPointsFlat(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr surfPointsLessFlat(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudCornerLast(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudSurfLast(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudOri(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr coeffSel(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudFullRes(new pcl::PointCloud<PointType>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr imuTrans(new pcl::PointCloud<pcl::PointXYZ>());
-pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeCornerLast(new pcl::KdTreeFLANN<pcl::PointXYZI>());
-pcl::KdTreeFLANN<pcl::PointXYZI>::Ptr kdtreeSurfLast(new pcl::KdTreeFLANN<pcl::PointXYZI>());
+pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerLast(new pcl::KdTreeFLANN<PointType>());
+pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfLast(new pcl::KdTreeFLANN<PointType>());
 
 int laserCloudCornerLastNum;
 int laserCloudSurfLastNum;
@@ -73,7 +75,7 @@ float imuRollLast = 0, imuPitchLast = 0, imuYawLast = 0;
 float imuShiftFromStartX = 0, imuShiftFromStartY = 0, imuShiftFromStartZ = 0;
 float imuVeloFromStartX = 0, imuVeloFromStartY = 0, imuVeloFromStartZ = 0;
 
-void TransformToStart(pcl::PointXYZI *pi, pcl::PointXYZI *po)
+void TransformToStart(PointType *pi, PointType *po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
@@ -98,7 +100,7 @@ void TransformToStart(pcl::PointXYZI *pi, pcl::PointXYZI *po)
   po->intensity = pi->intensity;
 }
 
-void TransformToEnd(pcl::PointXYZI *pi, pcl::PointXYZI *po)
+void TransformToEnd(PointType *pi, PointType *po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
@@ -374,7 +376,7 @@ int main(int argc, char** argv)
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;
 
-  pcl::PointXYZI pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
+  PointType pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
 
   bool isDegenerate = false;
   cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
@@ -400,7 +402,7 @@ int main(int argc, char** argv)
       newImuTrans = false;
 
       if (!systemInited) {
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudTemp = cornerPointsLessSharp;
+        pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
         cornerPointsLessSharp = laserCloudCornerLast;
         laserCloudCornerLast = laserCloudTemp;
 
@@ -851,7 +853,7 @@ int main(int argc, char** argv)
         }
       }
 
-      pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudTemp = cornerPointsLessSharp;
+      pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
       cornerPointsLessSharp = laserCloudCornerLast;
       laserCloudCornerLast = laserCloudTemp;
 

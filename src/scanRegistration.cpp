@@ -22,6 +22,8 @@
 #include <iostream>
 using namespace std;
 
+typedef pcl::PointXYZI PointType;
+
 const double PI = 3.1415926;
 
 const float scanPeriod = 0.1;
@@ -31,15 +33,15 @@ int systemInitCount = 0;
 bool systemInited = false;
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr laserCloudIn(new pcl::PointCloud<pcl::PointXYZ>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloud(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr cornerPointsSharp(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr cornerPointsLessSharp(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsFlat(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsLessFlat(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<pcl::PointXYZI>());
-pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsLessFlatScanDS(new pcl::PointCloud<pcl::PointXYZI>());
+pcl::PointCloud<PointType>::Ptr laserCloud(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr cornerPointsSharp(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr cornerPointsLessSharp(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr surfPointsFlat(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr surfPointsLessFlat(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScanDS(new pcl::PointCloud<PointType>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr imuTrans(new pcl::PointCloud<pcl::PointXYZ>(4, 1));
-pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudScans[16];
+pcl::PointCloud<PointType>::Ptr laserCloudScans[16];
 
 float cloudCurvature[40000];
 int cloudSortInd[40000];
@@ -127,7 +129,7 @@ void VeloToStartIMU()
   imuVeloFromStartZCur = z2;
 }
 
-void TransformToStartIMU(pcl::PointXYZI *p)
+void TransformToStartIMU(PointType *p)
 {
   float x1 = cos(imuRollCur) * p->x - sin(imuRollCur) * p->y;
   float y1 = sin(imuRollCur) * p->x + cos(imuRollCur) * p->y;
@@ -218,7 +220,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   }
   bool halfPassed = false;
   int count = cloudSize;
-  pcl::PointXYZI point;
+  PointType point;
   for (int i = 0; i < cloudSize; i++) {
     point.x = laserCloudIn->points[i].y;
     point.y = laserCloudIn->points[i].z;
@@ -544,7 +546,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
     }
 
     surfPointsLessFlatScanDS->clear();
-    pcl::VoxelGrid<pcl::PointXYZI> downSizeFilter;
+    pcl::VoxelGrid<PointType> downSizeFilter;
     downSizeFilter.setInputCloud(surfPointsLessFlatScan);
     downSizeFilter.setLeafSize(0.2, 0.2, 0.2);
     downSizeFilter.filter(*surfPointsLessFlatScanDS);
@@ -646,7 +648,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   for (int i = 0; i < 16; i++) {
-    laserCloudScans[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
+    laserCloudScans[i].reset(new pcl::PointCloud<PointType>());
   }
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
