@@ -48,10 +48,6 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
-const double PI = 3.1415926;
-const double rad2deg = 180 / PI;
-const double deg2rad = PI / 180;
-
 float transformSum[6] = {0};
 float transformIncre[6] = {0};
 float transformMapped[6] = {0};
