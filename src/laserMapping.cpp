@@ -1,5 +1,6 @@
 #include <math.h>
 
+#include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
 #include <opencv/cv.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -12,8 +13,6 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
-
-typedef pcl::PointXYZI PointType;
 
 const float scanPeriod = 0.1;
 
