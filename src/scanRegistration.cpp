@@ -1,60 +1,23 @@
-// Copyright 2013, Ji Zhang, Carnegie Mellon University
-// Further contribusions copyright (c) 2016, Southwest Research Institute
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-//    this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright notice,
-//    this list of conditions and the following disclaimer in the documentation
-//    and/or other materials provided with the distribution.
-// 3. Neither the name of the copyright holder nor the names of its
-//    contributors may be used to endorse or promote products derived from this
-//    software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
-//
-// This is an implementation of the algorithm described in the following paper:
-//   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
-//     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
-
 #include <cmath>
-#include <vector>
 
 #include <nav_msgs/Odometry.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/PointCloud2.h>
-
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
-
 #include <opencv/cv.h>
-
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf/transform_datatypes.h>
+#include <tf/transform_broadcaster.h>
 
 using std::sin;
 using std::cos;
 using std::atan2;
 
 typedef pcl::PointXYZI PointType;
-
-const double PI = 3.1415926;
 
 const float scanPeriod = 0.1;
 
@@ -241,12 +204,12 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   int cloudSize = laserCloudIn->points.size();
   float startOri = -atan2(laserCloudIn->points[0].y, laserCloudIn->points[0].x);
   float endOri = -atan2(laserCloudIn->points[cloudSize - 1].y, 
-                        laserCloudIn->points[cloudSize - 1].x) + 2 * PI;
+                        laserCloudIn->points[cloudSize - 1].x) + 2 * M_PI;
 
-  if (endOri - startOri > 3 * PI) {
-    endOri -= 2 * PI;
-  } else if (endOri - startOri < PI) {
-    endOri += 2 * PI;
+  if (endOri - startOri > 3 * M_PI) {
+    endOri -= 2 * M_PI;
+  } else if (endOri - startOri < M_PI) {
+    endOri += 2 * M_PI;
   }
   bool halfPassed = false;
   int count = cloudSize;
@@ -256,7 +219,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
     point.y = laserCloudIn->points[i].z;
     point.z = laserCloudIn->points[i].x;
 
-    float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / PI;
+    float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI;
     int scanID;
     int angle2 = int(angle + (angle<0.0?-0.5:+0.5));
     if (angle2 > 0){
@@ -272,22 +235,22 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
 
     float ori = -atan2(point.x, point.z);
     if (!halfPassed) {
-      if (ori < startOri - PI / 2) {
-        ori += 2 * PI;
-      } else if (ori > startOri + PI * 3 / 2) {
-        ori -= 2 * PI;
+      if (ori < startOri - M_PI / 2) {
+        ori += 2 * M_PI;
+      } else if (ori > startOri + M_PI * 3 / 2) {
+        ori -= 2 * M_PI;
       }
 
-      if (ori - startOri > PI) {
+      if (ori - startOri > M_PI) {
         halfPassed = true;
       }
     } else {
-      ori += 2 * PI;
+      ori += 2 * M_PI;
 
-      if (ori < endOri - PI * 3 / 2) {
-        ori += 2 * PI;
-      } else if (ori > endOri + PI / 2) {
-        ori -= 2 * PI;
+      if (ori < endOri - M_PI * 3 / 2) {
+        ori += 2 * M_PI;
+      } else if (ori > endOri + M_PI / 2) {
+        ori -= 2 * M_PI;
       } 
     }
 
@@ -324,10 +287,10 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
 
         imuRollCur = imuRoll[imuPointerFront] * ratioFront + imuRoll[imuPointerBack] * ratioBack;
         imuPitchCur = imuPitch[imuPointerFront] * ratioFront + imuPitch[imuPointerBack] * ratioBack;
-        if (imuYaw[imuPointerFront] - imuYaw[imuPointerBack] > PI) {
-          imuYawCur = imuYaw[imuPointerFront] * ratioFront + (imuYaw[imuPointerBack] + 2 * PI) * ratioBack;
-        } else if (imuYaw[imuPointerFront] - imuYaw[imuPointerBack] < -PI) {
-          imuYawCur = imuYaw[imuPointerFront] * ratioFront + (imuYaw[imuPointerBack] - 2 * PI) * ratioBack;
+        if (imuYaw[imuPointerFront] - imuYaw[imuPointerBack] > M_PI) {
+          imuYawCur = imuYaw[imuPointerFront] * ratioFront + (imuYaw[imuPointerBack] + 2 * M_PI) * ratioBack;
+        } else if (imuYaw[imuPointerFront] - imuYaw[imuPointerBack] < -M_PI) {
+          imuYawCur = imuYaw[imuPointerFront] * ratioFront + (imuYaw[imuPointerBack] - 2 * M_PI) * ratioBack;
         } else {
           imuYawCur = imuYaw[imuPointerFront] * ratioFront + imuYaw[imuPointerBack] * ratioBack;
         }

@@ -31,26 +31,21 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include <cmath>
-#include <vector>
 
 #include <nav_msgs/Odometry.h>
-#include <sensor_msgs/Imu.h>
-#include <sensor_msgs/PointCloud2.h>
-
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
-
 #include <opencv/cv.h>
-
-#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <ros/ros.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <tf/transform_datatypes.h>
+#include <tf/transform_broadcaster.h>
 
 typedef pcl::PointXYZI PointType;
-
-const double PI = 3.1415926;
 
 const float scanPeriod = 0.1;
 
@@ -806,9 +801,9 @@ int main(int argc, char** argv)
           transform[4] += matX.at<float>(4, 0);
           transform[5] += matX.at<float>(5, 0);
 
-          float deltaR = sqrt(matX.at<float>(0, 0) * 180 / PI * matX.at<float>(0, 0) * 180 / PI
-                       + matX.at<float>(1, 0) * 180 / PI * matX.at<float>(1, 0) * 180 / PI
-                       + matX.at<float>(2, 0) * 180 / PI * matX.at<float>(2, 0) * 180 / PI);
+          float deltaR = sqrt(matX.at<float>(0, 0) * 180 / M_PI * matX.at<float>(0, 0) * 180 / M_PI
+                       + matX.at<float>(1, 0) * 180 / M_PI * matX.at<float>(1, 0) * 180 / M_PI
+                       + matX.at<float>(2, 0) * 180 / M_PI * matX.at<float>(2, 0) * 180 / M_PI);
           float deltaT = sqrt(matX.at<float>(3, 0) * 100 * matX.at<float>(3, 0) * 100
                        + matX.at<float>(4, 0) * 100 * matX.at<float>(4, 0) * 100
                        + matX.at<float>(5, 0) * 100 * matX.at<float>(5, 0) * 100);

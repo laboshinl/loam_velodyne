@@ -43,7 +43,7 @@ if (CATKIN_ENABLE_TESTING)
   # TODO: Download test data
   catkin_download_test_data(${PROJECT_NAME}_test_data.tar.gz
     https://dl.dropboxusercontent.com/s/y4hn486461tfmpm/velodyne_loam_test_data.tar.gz
-    MD5 db715a08d583f748941b1c7fb3ef25c6)
+    MD5 3d5194e6981975588b7a93caebf79ba4)
   add_custom_target(${PROJECT_NAME}_test_data
     COMMAND ${CMAKE_COMMAND} -E tar -xzf velodyne_loam_test_data.tar.gz
     DEPENDS ${PROJECT_NAME}_test_data.tar.gz)
