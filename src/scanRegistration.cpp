@@ -74,8 +74,9 @@ int cloudSortInd[40000];
 int cloudNeighborPicked[40000];
 int cloudLabel[40000];
 
-int scanStartInd[16];
-int scanEndInd[16];
+const int N_SCANS = 16;
+std::vector<int> scanStartInd(N_SCANS, 0);
+std::vector<int> scanEndInd(N_SCANS, 0);
 
 int imuPointerFront = 0;
 int imuPointerLast = -1;
@@ -261,7 +262,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
     else {
       scanID = abs(angle2) - 1;
     }
-    if (scanID > 15 ){
+    if (scanID > (N_SCANS - 1) ){
       count--;
       continue;
     }
@@ -357,7 +358,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
     laserCloudScans[scanID]->push_back(point);
   }
   cloudSize = count;
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < N_SCANS; i++) {
     *laserCloud += *laserCloudScans[i];
   }
   int scanCount = -1;
@@ -388,14 +389,14 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
     if (int(laserCloud->points[i].intensity) != scanCount) {
       scanCount = int(laserCloud->points[i].intensity);
 
-      if (scanCount > 0) {
+      if (scanCount > 0 && scanCount < N_SCANS) {
         scanStartInd[scanCount] = i + 5;
         scanEndInd[scanCount - 1] = i - 5;
       }
     }
   }
   scanStartInd[0] = 5;
-  scanEndInd[15] = cloudSize - 5;
+  scanEndInd.back() = cloudSize - 5;
 
   for (int i = 5; i < cloudSize - 6; i++) {
     float diffX = laserCloud->points[i + 1].x - laserCloud->points[i].x;
@@ -456,7 +457,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
     }
   }
 
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < N_SCANS; i++) {
     surfPointsLessFlatScan->clear();
     for (int j = 0; j < 6; j++) {
       int sp = (scanStartInd[i] * (6 - j)  + scanEndInd[i] * j) / 6;
@@ -639,7 +640,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudIn2)
   surfPointsFlat->clear();
   surfPointsLessFlat->clear();
 
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < N_SCANS; i++) {
     laserCloudScans[i]->points.clear();
   }
 }
@@ -673,7 +674,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "scanRegistration");
   ros::NodeHandle nh;
 
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < N_SCANS; i++) {
     laserCloudScans[i].reset(new pcl::PointCloud<PointType>());
   }
 

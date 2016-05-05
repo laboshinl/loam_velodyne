@@ -199,7 +199,7 @@ void transformUpdate()
   }
 }
 
-void pointAssociateToMap(PointType *pi, PointType *po)
+void pointAssociateToMap(PointType const * const pi, PointType * const po)
 {
   float x1 = cos(transformTobeMapped[2]) * pi->x
            - sin(transformTobeMapped[2]) * pi->y;
@@ -219,7 +219,7 @@ void pointAssociateToMap(PointType *pi, PointType *po)
   po->intensity = pi->intensity;
 }
 
-void pointAssociateTobeMapped(PointType *pi, PointType *po)
+void pointAssociateTobeMapped(PointType const * const pi, PointType * const po)
 {
   float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
            - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);

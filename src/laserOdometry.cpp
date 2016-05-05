@@ -98,7 +98,7 @@ float imuRollLast = 0, imuPitchLast = 0, imuYawLast = 0;
 float imuShiftFromStartX = 0, imuShiftFromStartY = 0, imuShiftFromStartZ = 0;
 float imuVeloFromStartX = 0, imuVeloFromStartY = 0, imuVeloFromStartZ = 0;
 
-void TransformToStart(PointType *pi, PointType *po)
+void TransformToStart(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
@@ -123,7 +123,7 @@ void TransformToStart(PointType *pi, PointType *po)
   po->intensity = pi->intensity;
 }
 
-void TransformToEnd(PointType *pi, PointType *po)
+void TransformToEnd(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
