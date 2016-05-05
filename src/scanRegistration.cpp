@@ -65,9 +65,6 @@ int cloudSortInd[40000];
 int cloudNeighborPicked[40000];
 int cloudLabel[40000];
 
-std::vector<int> scanStartInd(N_SCANS, 0);
-std::vector<int> scanEndInd(N_SCANS, 0);
-
 int imuPointerFront = 0;
 int imuPointerLast = -1;
 const int imuQueLength = 200;
@@ -220,6 +217,9 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     }
     return;
   }
+
+  std::vector<int> scanStartInd(N_SCANS, 0);
+  std::vector<int> scanEndInd(N_SCANS, 0);
   
   double timeScanCur = laserCloudMsg->header.stamp.toSec();
   pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
