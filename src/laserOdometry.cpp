@@ -1,8 +1,5 @@
-#include <math.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <ros/ros.h>
+#include <cmath>
+#include <vector>
 
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>

@@ -1,7 +1,4 @@
-#include <math.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cmath>
 #include <ros/ros.h>
 
 #include <nav_msgs/Odometry.h>

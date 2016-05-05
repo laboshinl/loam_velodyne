@@ -1,8 +1,5 @@
-#include <math.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <ros/ros.h>
+#include <cmath>
+#include <vector>
 
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Imu.h>
@@ -19,8 +16,9 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 
-#include <iostream>
-using namespace std;
+using std::sin;
+using std::cos;
+using std::atan2;
 
 typedef pcl::PointXYZI PointType;
 
