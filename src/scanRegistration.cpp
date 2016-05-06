@@ -247,14 +247,14 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 
     float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI;
     int scanID;
-    int angle2 = int(angle + (angle<0.0?-0.5:+0.5)); // Round to nearest int
-    if (angle2 > 0){
-      scanID = angle2;
+    int roundedAngle = int(angle + (angle<0.0?-0.5:+0.5)); 
+    if (roundedAngle > 0){
+      scanID = roundedAngle;
     }
     else {
-      scanID = abs(angle2) - 1;
+      scanID = roundedAngle + (N_SCANS - 1);
     }
-    if (scanID > (N_SCANS - 1) ){
+    if (scanID > (N_SCANS - 1) || scanID < 0 ){
       count--;
       continue;
     }
