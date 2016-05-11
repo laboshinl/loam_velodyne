@@ -10,14 +10,14 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   tf)
 
-find_package(Eigen3 REQUIRED)
+#find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 
 include_directories(
   include
 	${catkin_INCLUDE_DIRS} 
-	${EIGEN3_INCLUDE_DIR} 
+#	${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
 
 catkin_package(

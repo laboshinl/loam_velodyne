@@ -800,6 +800,10 @@ int main(int argc, char** argv)
           transform[4] += matX.at<float>(4, 0);
           transform[5] += matX.at<float>(5, 0);
 
+          for(int i=0; i<6; i++){
+            if(isnan(transform[i]))
+              transform[i]=0;
+          }
           float deltaR = sqrt(
                               pow(rad2deg(matX.at<float>(0, 0)), 2) +
                               pow(rad2deg(matX.at<float>(1, 0)), 2) +
@@ -843,6 +847,9 @@ int main(int argc, char** argv)
       transformSum[4] = ty;
       transformSum[5] = tz;
 
+//      for(int i=0; i<6; i++){
+//        std::cout << "222" << transform[0]<<std::endl;
+//      }
       geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz, -rx, -ry);
 
       laserOdometry.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
