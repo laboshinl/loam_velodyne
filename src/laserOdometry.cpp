@@ -847,9 +847,6 @@ int main(int argc, char** argv)
       transformSum[4] = ty;
       transformSum[5] = tz;
 
-//      for(int i=0; i<6; i++){
-//        std::cout << "222" << transform[0]<<std::endl;
-//      }
       geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz, -rx, -ry);
 
       laserOdometry.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
