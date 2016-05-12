@@ -4,7 +4,6 @@ All sources were taken from [ROS documentation](http://docs.ros.org/indigo/api/l
 
 Ask questions [here](https://github.com/laboshinl/loam_velodyne/issues/3).
 
-
 How to build with catkin:
 
 ```
@@ -30,3 +29,5 @@ Or read from velodyne [VLP16 sample pcap](https://midas3.kitware.com/midas/folde
 roslaunch velodyne_pointcloud VLP16_points.launch pcap:="/home/laboshinl/Downloads/velodyne.pcap"
 ```
 
+---
+[Quantifying Aerial LiDAR Accuracy of LOAM for Civil Engineering Applications.] (https://ceen.et.byu.edu/sites/default/files/snrprojects/wolfe_derek.pdf) Derek Anthony Wolfe
