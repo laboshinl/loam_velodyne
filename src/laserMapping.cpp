@@ -144,40 +144,38 @@ void transformAssociateToMap()
   float salz = sin(transformAftMapped[2]);
   float calz = cos(transformAftMapped[2]);
 
-  float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly) 
-            - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-            - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-            - cbcx*sbcz*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-            - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz);
+  float srx = -sbcx*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz)
+            - cbcx*sbcy*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
+            - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
+            - cbcx*cbcy*(calx*salz*(cblz*sbly - cbly*sblx*sblz) 
+            - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx);
   transformTobeMapped[0] = -asin(srx);
 
-  float srycrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
-               + cbcx*sbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
-  float crycrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*caly*(cblz*sbly - cbly*sblx*sblz) 
-               - calx*saly*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sblz) 
-               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
-               - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
-               + cbcx*cbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
+  float srycrx = sbcx*(cblx*cblz*(caly*salz - calz*salx*saly)
+               - cblx*sblz*(caly*calz + salx*saly*salz) + calx*saly*sblx)
+               - cbcx*cbcy*((caly*calz + salx*saly*salz)*(cblz*sbly - cbly*sblx*sblz)
+               + (caly*salz - calz*salx*saly)*(sbly*sblz + cbly*cblz*sblx) - calx*cblx*cbly*saly)
+               + cbcx*sbcy*((caly*calz + salx*saly*salz)*(cbly*cblz + sblx*sbly*sblz)
+               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) + calx*cblx*saly*sbly);
+  float crycrx = sbcx*(cblx*sblz*(calz*saly - caly*salx*salz)
+               - cblx*cblz*(saly*salz + caly*calz*salx) + calx*caly*sblx)
+               + cbcx*cbcy*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx)
+               + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) + calx*caly*cblx*cbly)
+               - cbcx*sbcy*((saly*salz + caly*calz*salx)*(cbly*sblz - cblz*sblx*sbly)
+               + (calz*saly - caly*salx*salz)*(cbly*cblz + sblx*sbly*sblz) - calx*caly*cblx*sbly);
   transformTobeMapped[1] = atan2(srycrx / cos(transformTobeMapped[0]), 
                                  crycrx / cos(transformTobeMapped[0]));
   
-  float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz) 
-               - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx) 
-               - cbcx*cbcz*((caly*calz + salx*saly*salz)*(cbly*sblz - cblz*sblx*sbly) 
-               + (calz*saly - caly*salx*salz)*(sbly*sblz + cbly*cblz*sblx) 
-               - calx*cblx*cblz*salz) + cbcx*sbcz*((caly*calz + salx*saly*salz)*(cbly*cblz 
-               + sblx*sbly*sblz) + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) 
-               + calx*cblx*salz*sblz);
-  float crzcrx = sbcx*(cblx*sbly*(caly*salz - calz*salx*saly) 
-               - cblx*cbly*(saly*salz + caly*calz*salx) + calx*calz*sblx) 
-               + cbcx*cbcz*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx) 
-               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) 
-               + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
-               - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
-               - calx*calz*cblx*sblz);
+  float srzcrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
+               - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
+               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
+               - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
+               + cbcx*sbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
+  float crzcrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
+               - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
+               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
+               - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
+               + cbcx*cbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
   transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
                                  crzcrx / cos(transformTobeMapped[0]));
 
