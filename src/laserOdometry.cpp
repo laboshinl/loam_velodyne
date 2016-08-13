@@ -455,9 +455,6 @@ int main(int argc, char** argv)
         continue;
       }
 
-      laserCloudOri->clear();
-      coeffSel->clear();
-
       transform[3] -= imuVeloFromStartX * scanPeriod;
       transform[4] -= imuVeloFromStartY * scanPeriod;
       transform[5] -= imuVeloFromStartZ * scanPeriod;
@@ -468,6 +465,9 @@ int main(int argc, char** argv)
         int cornerPointsSharpNum = cornerPointsSharp->points.size();
         int surfPointsFlatNum = surfPointsFlat->points.size();
         for (int iterCount = 0; iterCount < 25; iterCount++) {
+          laserCloudOri->clear();
+          coeffSel->clear();
+
           for (int i = 0; i < cornerPointsSharpNum; i++) {
             TransformToStart(&cornerPointsSharp->points[i], &pointSel);
 
