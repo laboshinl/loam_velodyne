@@ -31,6 +31,7 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include <cmath>
+#include <chrono>
 
 #include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
@@ -45,6 +46,25 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+
+struct FreqReport {
+    std::string name;
+    std::chrono::system_clock::time_point last_time;
+    bool firstTime;
+    FreqReport(const std::string & n) : name(n), firstTime(true){}
+    void report() {
+        if(firstTime){
+            firstTime = false;
+            last_time = std::chrono::system_clock::now();
+            return;
+        }
+        auto cur_time = std::chrono::system_clock::now();
+        ROS_INFO("time interval of %s = %f seconds\n", name.c_str(),
+                 std::chrono::duration_cast<std::chrono::duration<float, std::ratio<1,1>>>(
+                         cur_time - last_time).count());
+        last_time = cur_time;
+    }
+};
 
 const float scanPeriod = 0.1;
 
@@ -90,7 +110,7 @@ float pointSearchSurfInd1[40000];
 float pointSearchSurfInd2[40000];
 float pointSearchSurfInd3[40000];
 
-float transform[6] = {0};
+float transform[6] = {0}; // [angle angle angle, trans, trans, trans]
 float transformSum[6] = {0};
 
 float imuRollStart = 0, imuPitchStart = 0, imuYawStart = 0;
@@ -351,9 +371,19 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
   imuVeloFromStartZ = imuTrans->points[3].z;
 
   newImuTrans = true;
+
+//#define PRINT(name) ROS_INFO(#name" = %f\n", name)
+//  PRINT(imuShiftFromStartX);
+//  PRINT(imuShiftFromStartY);
+//  PRINT(imuShiftFromStartZ);
+//  PRINT(imuVeloFromStartX);
+//  PRINT(imuVeloFromStartY);
+//  PRINT(imuVeloFromStartZ);
+//#undef PRINT
 }
 
-
+FreqReport laserOdometryFreq("laserOdometry");
+FreqReport registeredLaserCloudFreq("registeredLaserCloud");
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "laserOdometry");
@@ -427,11 +457,11 @@ int main(int argc, char** argv)
       if (!systemInited) {
         pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
         cornerPointsLessSharp = laserCloudCornerLast;
-        laserCloudCornerLast = laserCloudTemp;
+        laserCloudCornerLast = laserCloudTemp; // swap(cornerPointsLessSharp, laserCloudCornerLast)
 
         laserCloudTemp = surfPointsLessFlat;
         surfPointsLessFlat = laserCloudSurfLast;
-        laserCloudSurfLast = laserCloudTemp;
+        laserCloudSurfLast = laserCloudTemp; // swap(surfPointsLessFlat, laserCloudSurfLast)
 
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
@@ -458,11 +488,21 @@ int main(int argc, char** argv)
       transform[3] -= imuVeloFromStartX * scanPeriod;
       transform[4] -= imuVeloFromStartY * scanPeriod;
       transform[5] -= imuVeloFromStartZ * scanPeriod;
+// #define PRINT(name) ROS_INFO("in laserOdometry "#name" = %f", name)
+//  PRINT(imuShiftFromStartX);
+//  PRINT(imuShiftFromStartY);
+//  PRINT(imuShiftFromStartZ);
+//  PRINT(imuVeloFromStartX);
+//  PRINT(imuVeloFromStartY);
+//  PRINT(imuVeloFromStartZ);
+// #undef PRINT
 
-      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) { // estimate transform
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*cornerPointsSharp,*cornerPointsSharp, indices);
         int cornerPointsSharpNum = cornerPointsSharp->points.size();
+        ROS_INFO("cornerPointsSharpNum = %i, laserCloudCornerLast->points.size() = %i",
+                 cornerPointsSharpNum, (int)laserCloudCornerLast->points.size());
         int surfPointsFlatNum = surfPointsFlat->points.size();
         for (int iterCount = 0; iterCount < 25; iterCount++) {
           laserCloudOri->clear();
@@ -471,7 +511,7 @@ int main(int argc, char** argv)
           for (int i = 0; i < cornerPointsSharpNum; i++) {
             TransformToStart(&cornerPointsSharp->points[i], &pointSel);
 
-            if (iterCount % 5 == 0) {
+            if (iterCount % 5 == 0) { // locate the nearest point in last corner points to this cornerPointsSharp point every 5 iters
               std::vector<int> indices;
               pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
               kdtreeCornerLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
@@ -480,7 +520,7 @@ int main(int argc, char** argv)
                 closestPointInd = pointSearchInd[0];
                 int closestPointScan = int(laserCloudCornerLast->points[closestPointInd].intensity);
 
-                float pointSqDis, minPointSqDis2 = 25;
+                float pointSqDis, minPointSqDis2 = 25; // find the nearest corner point in neighbor scan lines (scan line id diff <= 2.5)
                 for (int j = closestPointInd + 1; j < cornerPointsSharpNum; j++) {
                   if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan + 2.5) {
                     break;
@@ -521,8 +561,8 @@ int main(int argc, char** argv)
                 }
               }
 
-              pointSearchCornerInd1[i] = closestPointInd;
-              pointSearchCornerInd2[i] = minPointInd2;
+              pointSearchCornerInd1[i] = closestPointInd; // closest point j in last scan
+              pointSearchCornerInd2[i] = minPointInd2; // closest point l in last scan (on different scan line)
             }
 
             if (pointSearchCornerInd2[i] >= 0) {
@@ -642,9 +682,9 @@ int main(int argc, char** argv)
                 }
               }
 
-              pointSearchSurfInd1[i] = closestPointInd;
-              pointSearchSurfInd2[i] = minPointInd2;
-              pointSearchSurfInd3[i] = minPointInd3;
+              pointSearchSurfInd1[i] = closestPointInd; //  j on planar patch
+              pointSearchSurfInd2[i] = minPointInd2; // l on planar patch
+              pointSearchSurfInd3[i] = minPointInd3; // m on planar patch
             }
 
             if (pointSearchSurfInd2[i] >= 0 && pointSearchSurfInd3[i] >= 0) {
@@ -801,7 +841,7 @@ int main(int argc, char** argv)
           transform[5] += matX.at<float>(5, 0);
 
           for(int i=0; i<6; i++){
-            if(isnan(transform[i]))
+            if(std::isnan(transform[i]))
               transform[i]=0;
           }
           float deltaR = sqrt(
@@ -819,6 +859,7 @@ int main(int argc, char** argv)
         }
       }
 
+      // accumulate transform
       float rx, ry, rz, tx, ty, tz;
       AccumulateRotation(transformSum[0], transformSum[1], transformSum[2], 
                          -transform[0], -transform[1] * 1.05, -transform[2], rx, ry, rz);
@@ -859,6 +900,9 @@ int main(int argc, char** argv)
       laserOdometry.pose.pose.position.z = tz;
       pubLaserOdometry.publish(laserOdometry);
 
+      laserOdometryFreq.report();
+
+
       laserOdometryTrans.stamp_ = ros::Time().fromSec(timeSurfPointsLessFlat);
       laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
       laserOdometryTrans.setOrigin(tf::Vector3(tx, ty, tz));
@@ -878,7 +922,7 @@ int main(int argc, char** argv)
       if (frameCount >= skipFrameNum + 1) {
         int laserCloudFullResNum = laserCloudFullRes->points.size();
         for (int i = 0; i < laserCloudFullResNum; i++) {
-          TransformToEnd(&laserCloudFullRes->points[i], &laserCloudFullRes->points[i]);
+          TransformToEnd(&laserCloudFullRes->points[i], &laserCloudFullRes->points[i]); // transform all points in this sweep to end
         }
       }
 
@@ -904,19 +948,21 @@ int main(int argc, char** argv)
         pcl::toROSMsg(*laserCloudCornerLast, laserCloudCornerLast2);
         laserCloudCornerLast2.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
         laserCloudCornerLast2.header.frame_id = "/camera";
-        pubLaserCloudCornerLast.publish(laserCloudCornerLast2);
+        pubLaserCloudCornerLast.publish(laserCloudCornerLast2); // all transformed to sweep end
 
         sensor_msgs::PointCloud2 laserCloudSurfLast2;
         pcl::toROSMsg(*laserCloudSurfLast, laserCloudSurfLast2);
         laserCloudSurfLast2.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
         laserCloudSurfLast2.header.frame_id = "/camera";
-        pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
+        pubLaserCloudSurfLast.publish(laserCloudSurfLast2); // all transformed to sweep end
 
         sensor_msgs::PointCloud2 laserCloudFullRes3;
         pcl::toROSMsg(*laserCloudFullRes, laserCloudFullRes3);
         laserCloudFullRes3.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
         laserCloudFullRes3.header.frame_id = "/camera";
-        pubLaserCloudFullRes.publish(laserCloudFullRes3);
+        pubLaserCloudFullRes.publish(laserCloudFullRes3); // all transformed to sweep end
+
+        registeredLaserCloudFreq.report();
       }
     }
 

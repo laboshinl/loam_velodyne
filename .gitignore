@@ -10,3 +10,7 @@ CMakeFiles
 cmake_install.cmake  
 Makefile
 
+.vscode
+.tags*
+.idea
+.settings

@@ -31,6 +31,7 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include <math.h>
+#include <chrono>
 
 #include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
@@ -45,6 +46,25 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+
+struct FreqReport {
+    std::string name;
+    std::chrono::system_clock::time_point last_time;
+    bool firstTime;
+    FreqReport(const std::string & n) : name(n), firstTime(true){}
+    void report() {
+        if(firstTime){
+            firstTime = false;
+            last_time = std::chrono::system_clock::now();
+            return;
+        }
+        auto cur_time = std::chrono::system_clock::now();
+        ROS_INFO("time interval of %s = %f seconds\n", name.c_str(),
+                 std::chrono::duration_cast<std::chrono::duration<float, std::ratio<1,1>>>(
+                         cur_time - last_time).count());
+        last_time = cur_time;
+    }
+};
 
 const float scanPeriod = 0.1;
 
@@ -331,6 +351,9 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
   imuRoll[imuPointerLast] = roll;
   imuPitch[imuPointerLast] = pitch;
 }
+
+FreqReport mappingCloudFreq("mappingCloud");
+FreqReport mappingOdometryFreq("mappingOdometry");
 
 int main(int argc, char** argv)
 {
@@ -1053,6 +1076,8 @@ int main(int argc, char** argv)
           laserCloudSurround3.header.stamp = ros::Time().fromSec(timeLaserOdometry);
           laserCloudSurround3.header.frame_id = "/camera_init";
           pubLaserCloudSurround.publish(laserCloudSurround3);
+
+          mappingCloudFreq.report();
         }
 
         int laserCloudFullResNum = laserCloudFullRes->points.size();
@@ -1084,6 +1109,8 @@ int main(int argc, char** argv)
         odomAftMapped.twist.twist.linear.y = transformBefMapped[4];
         odomAftMapped.twist.twist.linear.z = transformBefMapped[5];
         pubOdomAftMapped.publish(odomAftMapped);
+
+        mappingOdometryFreq.report();
 
         aftMappedTrans.stamp_ = ros::Time().fromSec(timeLaserOdometry);
         aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
