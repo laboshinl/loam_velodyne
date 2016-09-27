@@ -32,6 +32,10 @@
 
 #include <cmath>
 #include <vector>
+#include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <chrono>
 
 #include <loam_velodyne/common.h>
 #include <opencv/cv.h>
@@ -52,7 +56,26 @@ using std::sin;
 using std::cos;
 using std::atan2;
 
-const double scanPeriod = 0.1;
+struct FreqReport {
+    std::string name;
+    std::chrono::system_clock::time_point last_time;
+    bool firstTime;
+    FreqReport(const std::string & n) : name(n), firstTime(true){}
+    void report() {
+      if(firstTime){
+        firstTime = false;
+        last_time = std::chrono::system_clock::now();
+        return;
+      }
+      auto cur_time = std::chrono::system_clock::now();
+      ROS_INFO("time interval of %s = %f seconds\n", name.c_str(),
+               std::chrono::duration_cast<std::chrono::duration<float, std::ratio<1,1>>>(
+                       cur_time - last_time).count());
+      last_time = cur_time;
+    }
+};
+
+const double scanPeriod = 0.1; // time duration per scan
 
 const int systemDelay = 20;
 int systemInitCount = 0;
@@ -104,6 +127,8 @@ ros::Publisher pubCornerPointsLessSharp;
 ros::Publisher pubSurfPointsFlat;
 ros::Publisher pubSurfPointsLessFlat;
 ros::Publisher pubImuTrans;
+
+FreqReport scanRegistrationFreq("scanRegistration");
 
 // imu shift from start vector (imuShiftFromStart*Cur) converted into start imu coordinates?
 void ShiftToStartIMU(float pointTime)
@@ -209,6 +234,8 @@ void AccumulateIMUShift()
   }
 }
 
+auto last_time = std::chrono::system_clock::now();
+
 void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 {
   if (!systemInited) {
@@ -219,18 +246,53 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     return;
   }
 
-  std::vector<int> scanStartInd(N_SCANS, 0); // not used until line 356
-  std::vector<int> scanEndInd(N_SCANS, 0); // not used until line 356
+
+  std::vector<int> scanStartInd(N_SCANS, 0); // scanStartInd[scanId] is the first point id of scanId
+  std::vector<int> scanEndInd(N_SCANS, 0); // scanEndInd[scanId] is the last point id of scanId
   
   double timeScanCur = laserCloudMsg->header.stamp.toSec(); // time point of current scan
   pcl::PointCloud<pcl::PointXYZ> laserCloudIn; // input cloud, NaN points removed
   pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(laserCloudIn, laserCloudIn, indices);
+
   int cloudSize = laserCloudIn.points.size(); // number of cloud points
   float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x); // ori of first point in cloud on origin x-y plane
   float endOri = -atan2(laserCloudIn.points[cloudSize - 1].y, // ori of last point in clound on origin x-y plane
                         laserCloudIn.points[cloudSize - 1].x) + 2 * M_PI; 
+
+  // if(false){
+  //   static int writtenCount = 0;
+  //   writtenCount ++;
+  //   if(writtenCount < 10) {
+  //     std::stringstream ss;
+  //     ss << "/home/i-360/catkin_ws/lidar_scan_" << writtenCount << ".xyz";
+  //     std::ofstream ofs(ss.str().c_str());
+  //     if(!ofs){
+  //       ROS_INFO("failed to write to %s\n", ss.str().c_str());
+  //     }else {
+  //       for (int i = 0; i < laserCloudIn.points.size(); i++) {
+  //         pcl::PointXYZ p = laserCloudIn.points[i];
+  //         float len = 1;//sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+  //         ofs << p.x / len << " " << p.y / len << " " << p.z / len << std::endl;
+  //       }
+  //     }
+  //   }
+  //   if(writtenCount < 10) {
+  //     std::stringstream ss;
+  //     ss << "/home/i-360/catkin_ws/lidar_scan_normalized_" << writtenCount << ".xyz";
+  //     std::ofstream ofs(ss.str().c_str());
+  //     if(!ofs){
+  //       ROS_INFO("failed to write to %s\n", ss.str().c_str());
+  //     }else {
+  //       for (int i = 0; i < laserCloudIn.points.size(); i++) {
+  //         pcl::PointXYZ p = laserCloudIn.points[i];
+  //         float len = sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+  //         ofs << p.x / len << " " << p.y / len << " " << p.z / len << std::endl;
+  //       }
+  //     }
+  //   }
+  // }
 
   if (endOri - startOri > 3 * M_PI) {
     endOri -= 2 * M_PI;
@@ -243,12 +305,34 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   PointType point;
   std::vector<pcl::PointCloud<PointType> > laserCloudScans(N_SCANS);
 
+  float minAngle = 180, maxAngle = -180;
+  PointType minP, maxP;
+  minP.x = minP.y = minP.z = 1e8;
+  maxP.x = maxP.y = maxP.z = -1e8;
+
+  /// use imu data to register original scanned points into lidar coodinates in different scan lines
   for (int i = 0; i < cloudSize; i++) {
     point.x = laserCloudIn.points[i].y;
     point.y = laserCloudIn.points[i].z;
     point.z = laserCloudIn.points[i].x;
 
+
+    minP.x = std::min(minP.x, point.x);
+    minP.y = std::min(minP.y, point.y);
+    minP.z = std::min(minP.z, point.z);
+    maxP.x = std::max(maxP.x, point.x);
+    maxP.y = std::max(maxP.y, point.y);
+    maxP.z = std::max(maxP.z, point.z);
+
     float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI; // angle of origin z from origin x-y plane (-90, +90)
+    // angle is an integer
+
+    if(!std::isnan(angle)) {
+      minAngle = std::min(angle, minAngle);
+      maxAngle = std::max(angle, maxAngle);
+    }
+    //ROS_INFO("[%f]", angle);
+
     int scanID;
     int roundedAngle = int(angle + (angle<0.0?-0.5:+0.5)); 
     if (roundedAngle > 0){
@@ -295,7 +379,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         imuPointerFront = (imuPointerFront + 1) % imuQueLength;
       }
 
-      if (timeScanCur + pointTime > imuTime[imuPointerFront]) {
+      if (timeScanCur + pointTime > imuTime[imuPointerFront]) { /// use the newest imu data if no newer imu
         imuRollCur = imuRoll[imuPointerFront];
         imuPitchCur = imuPitch[imuPointerFront];
         imuYawCur = imuYaw[imuPointerFront];
@@ -307,7 +391,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         imuShiftXCur = imuShiftX[imuPointerFront];
         imuShiftYCur = imuShiftY[imuPointerFront];
         imuShiftZCur = imuShiftZ[imuPointerFront];
-      } else {
+      } else { /// interpolate in all existing imu data if there are newer imu data
         int imuPointerBack = (imuPointerFront + imuQueLength - 1) % imuQueLength;
         float ratioFront = (timeScanCur + pointTime - imuTime[imuPointerBack]) 
                          / (imuTime[imuPointerFront] - imuTime[imuPointerBack]);
@@ -352,6 +436,12 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     }
     laserCloudScans[scanID].push_back(point);
   }
+  //ROS_INFO("\n");
+  //ROS_INFO("minAngle = %f, maxAngle = %f\n", minAngle, maxAngle);
+  // output minAngle = -15, maxAngle = 15
+  //ROS_INFO("bounding box = [%f,%f,%f; %f,%f,%f]\n", minP.x, minP.y, minP.z, maxP.x, maxP.y, maxP.z);
+  // output generally: [-20(+-10), -5(+-1), -100(+-20); +70(+-10), +25(+-1), +80(+-10)]
+
   cloudSize = count;
 
   pcl::PointCloud<PointType>::Ptr laserCloud(new pcl::PointCloud<PointType>());
@@ -402,7 +492,6 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     float diff = diffX * diffX + diffY * diffY + diffZ * diffZ;
 
     if (diff > 0.1) {
-
       float depth1 = sqrt(laserCloud->points[i].x * laserCloud->points[i].x + 
                      laserCloud->points[i].y * laserCloud->points[i].y +
                      laserCloud->points[i].z * laserCloud->points[i].z);
@@ -416,7 +505,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         diffY = laserCloud->points[i + 1].y - laserCloud->points[i].y * depth2 / depth1;
         diffZ = laserCloud->points[i + 1].z - laserCloud->points[i].z * depth2 / depth1;
 
-        if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth2 < 0.1) {
+        if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth2 < 0.1) { // is connected?
           cloudNeighborPicked[i - 5] = 1;
           cloudNeighborPicked[i - 4] = 1;
           cloudNeighborPicked[i - 3] = 1;
@@ -429,7 +518,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         diffY = laserCloud->points[i + 1].y * depth1 / depth2 - laserCloud->points[i].y;
         diffZ = laserCloud->points[i + 1].z * depth1 / depth2 - laserCloud->points[i].z;
 
-        if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth1 < 0.1) {
+        if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth1 < 0.1) { // is connected?
           cloudNeighborPicked[i + 1] = 1;
           cloudNeighborPicked[i + 2] = 1;
           cloudNeighborPicked[i + 3] = 1;
@@ -467,7 +556,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
       int sp = (scanStartInd[i] * (6 - j)  + scanEndInd[i] * j) / 6;
       int ep = (scanStartInd[i] * (5 - j)  + scanEndInd[i] * (j + 1)) / 6 - 1;
 
-      for (int k = sp + 1; k <= ep; k++) {
+      for (int k = sp + 1; k <= ep; k++) { // sort by curvature within [sp, ep]?, curvature descending order
         for (int l = k; l >= sp + 1; l--) {
           if (cloudCurvature[cloudSortInd[l]] < cloudCurvature[cloudSortInd[l - 1]]) {
             int temp = cloudSortInd[l - 1];
@@ -637,10 +726,24 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   imuTransMsg.header.stamp = laserCloudMsg->header.stamp;
   imuTransMsg.header.frame_id = "/camera";
   pubImuTrans.publish(imuTransMsg);
+
+// #define PRINT(name) ROS_INFO("in scanRegistration "#name" = %f", name)
+//  PRINT(imuShiftFromStartXCur);
+//  PRINT(imuShiftFromStartYCur);
+//  PRINT(imuShiftFromStartZCur);
+//  PRINT(imuVeloFromStartXCur);
+//  PRINT(imuVeloFromStartYCur);
+//  PRINT(imuVeloFromStartZCur);
+// #undef PRINT
+
+  scanRegistrationFreq.report();
 }
+
+FreqReport imuFreq("imu");
 
 void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
 {
+  //ROS_INFO("imu recieved!\n");
   double roll, pitch, yaw;
   tf::Quaternion orientation;
   tf::quaternionMsgToTF(imuIn->orientation, orientation);
@@ -649,6 +752,12 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
   float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
   float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
   float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
+
+//#define PRINT(name) ROS_INFO(#name" = %f\n", name)
+//  PRINT(accX);
+//  PRINT(accY);
+//  PRINT(accZ);
+//#undef PRINT
 
   imuPointerLast = (imuPointerLast + 1) % imuQueLength;
 
@@ -661,6 +770,7 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
   imuAccZ[imuPointerLast] = accZ;
 
   AccumulateIMUShift();
+  //imuFreq.report();
 }
 
 int main(int argc, char** argv)

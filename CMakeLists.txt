@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(loam_velodyne)
 
+set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS}")
+
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
