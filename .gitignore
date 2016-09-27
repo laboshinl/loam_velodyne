@@ -10,3 +10,8 @@ CMakeFiles
 cmake_install.cmake  
 Makefile
 
+.tags*
+
+*.VC.db
+*.VC.opendb
+*.suo

@@ -71,7 +71,7 @@ pcl::PointCloud<PointType>::Ptr surfPointsFlat(new pcl::PointCloud<PointType>())
 pcl::PointCloud<PointType>::Ptr surfPointsLessFlat(new pcl::PointCloud<PointType>());
 pcl::PointCloud<PointType>::Ptr laserCloudCornerLast(new pcl::PointCloud<PointType>());
 pcl::PointCloud<PointType>::Ptr laserCloudSurfLast(new pcl::PointCloud<PointType>());
-pcl::PointCloud<PointType>::Ptr laserCloudOri(new pcl::PointCloud<PointType>());
+pcl::PointCloud<PointType>::Ptr laserCloudOri(new pcl::PointCloud<PointType>()); // stores the original coordinates (not transformed to start time point) of feature point in current cloud
 pcl::PointCloud<PointType>::Ptr coeffSel(new pcl::PointCloud<PointType>());
 pcl::PointCloud<PointType>::Ptr laserCloudFullRes(new pcl::PointCloud<PointType>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr imuTrans(new pcl::PointCloud<pcl::PointXYZ>());
@@ -90,8 +90,8 @@ float pointSearchSurfInd1[40000];
 float pointSearchSurfInd2[40000];
 float pointSearchSurfInd3[40000];
 
-float transform[6] = {0};
-float transformSum[6] = {0};
+float transform[6] = {0}; // rotation {x, y, z} or {pitch?, yaw?, roll?}, translation {x, y, z}
+float transformSum[6] = {0}; // rotation {x, y, z} or {pitch?, yaw?, roll?}, translation {x, y, z}
 
 float imuRollStart = 0, imuPitchStart = 0, imuYawStart = 0;
 float imuRollLast = 0, imuPitchLast = 0, imuYawLast = 0;
@@ -100,7 +100,7 @@ float imuVeloFromStartX = 0, imuVeloFromStartY = 0, imuVeloFromStartZ = 0;
 
 void TransformToStart(PointType const * const pi, PointType * const po)
 {
-  float s = 10 * (pi->intensity - int(pi->intensity));
+  float s = 10 * (pi->intensity - int(pi->intensity)); // interpolation factor
 
   float rx = s * transform[0];
   float ry = s * transform[1];
@@ -125,7 +125,7 @@ void TransformToStart(PointType const * const pi, PointType * const po)
 
 void TransformToEnd(PointType const * const pi, PointType * const po)
 {
-  float s = 10 * (pi->intensity - int(pi->intensity));
+  float s = 10 * (pi->intensity - int(pi->intensity)); // interpolation factor
 
   float rx = s * transform[0];
   float ry = s * transform[1];
@@ -399,7 +399,10 @@ int main(int argc, char** argv)
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;
 
-  PointType pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
+  // pointOri stores the original coordinates (not transformed to start time point) of feature point in current cloud
+  // coeff.xyz stores step * diff(distance(pointSel, {edge/plane}), {pointSel.x, pointSel.y, pointSel.z}), diff means gradient
+  // coeff.instance stores step * distance(pointSel, {edge/plane})
+  PointType pointOri, pointSel, tripod1, tripod2, tripod3, /*pointProj, */coeff;
 
   bool isDegenerate = false;
   cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
@@ -424,68 +427,77 @@ int main(int argc, char** argv)
       newLaserCloudFullRes = false;
       newImuTrans = false;
 
-      if (!systemInited) {
+      if (!systemInited) { 
+		// initialize the "last clouds" & kdtrees, publish the first clouds, 
+		// initialize the pitch and roll components of transformSum
+		
+		// initialize laserCloudCornerLast
         pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
         cornerPointsLessSharp = laserCloudCornerLast;
         laserCloudCornerLast = laserCloudTemp;
-
+		// initialize laserCloudSurfLast
         laserCloudTemp = surfPointsLessFlat;
         surfPointsLessFlat = laserCloudSurfLast;
         laserCloudSurfLast = laserCloudTemp;
-
+		// initialize kdtreeCornerLast kdtreeSurfLast
         kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
         kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
-
+		// publish the first laserCloudCornerLast
         sensor_msgs::PointCloud2 laserCloudCornerLast2;
         pcl::toROSMsg(*laserCloudCornerLast, laserCloudCornerLast2);
         laserCloudCornerLast2.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
         laserCloudCornerLast2.header.frame_id = "/camera";
         pubLaserCloudCornerLast.publish(laserCloudCornerLast2);
-
+		// publish the first laserCloudSurfLast2
         sensor_msgs::PointCloud2 laserCloudSurfLast2;
         pcl::toROSMsg(*laserCloudSurfLast, laserCloudSurfLast2);
         laserCloudSurfLast2.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
         laserCloudSurfLast2.header.frame_id = "/camera";
         pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
 
-        transformSum[0] += imuPitchStart;
-        transformSum[2] += imuRollStart;
+        transformSum[0] += imuPitchStart; // TODO
+        transformSum[2] += imuRollStart; // TODO
 
         systemInited = true;
         continue;
       }
 
+	  // minus the predicted motion
       transform[3] -= imuVeloFromStartX * scanPeriod;
       transform[4] -= imuVeloFromStartY * scanPeriod;
       transform[5] -= imuVeloFromStartZ * scanPeriod;
 
-      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) { // when features are sufficient in last cloud
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*cornerPointsSharp,*cornerPointsSharp, indices);
-        int cornerPointsSharpNum = cornerPointsSharp->points.size();
+        
+		int cornerPointsSharpNum = cornerPointsSharp->points.size();
         int surfPointsFlatNum = surfPointsFlat->points.size();
+
         for (int iterCount = 0; iterCount < 25; iterCount++) {
           laserCloudOri->clear();
           coeffSel->clear();
 
           for (int i = 0; i < cornerPointsSharpNum; i++) {
-            TransformToStart(&cornerPointsSharp->points[i], &pointSel);
+			// transform current point to the frame of start time point
+            TransformToStart(&cornerPointsSharp->points[i], &pointSel); 
 
-            if (iterCount % 5 == 0) {
+            if (iterCount % 5 == 0) {  // its time to find correspondences with edges
               std::vector<int> indices;
               pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
               kdtreeCornerLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
               int closestPointInd = -1, minPointInd2 = -1;
-              if (pointSearchSqDis[0] < 25) {
+              if (pointSearchSqDis[0] < 25) { // when distance to the found nearest point pointSearchInd[0] in last cloud be < 5
                 closestPointInd = pointSearchInd[0];
-                int closestPointScan = int(laserCloudCornerLast->points[closestPointInd].intensity);
+                int closestPointScan = int(laserCloudCornerLast->points[closestPointInd].intensity); // get the scan line id of closestPointInd
 
-                float pointSqDis, minPointSqDis2 = 25;
-                for (int j = closestPointInd + 1; j < cornerPointsSharpNum; j++) {
-                  if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan + 2.5) {
+                float pointSqDis, minPointSqDis2 = 25; // max distance: 5
+                for (int j = closestPointInd + 1; j < cornerPointsSharpNum; j++) { // search forward points, find the other point in last cloud
+				  // TODO: j is bounded by cornerPointsSharpNum, can it be used to index laserCloudCornerLast?
+                  if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan + 2.5) { 
                     break;
                   }
-
+				  // squared distance between the other point and pointSel
                   pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
                                (laserCloudCornerLast->points[j].x - pointSel.x) + 
                                (laserCloudCornerLast->points[j].y - pointSel.y) * 
@@ -493,18 +505,18 @@ int main(int argc, char** argv)
                                (laserCloudCornerLast->points[j].z - pointSel.z) * 
                                (laserCloudCornerLast->points[j].z - pointSel.z);
 
-                  if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan) {
+                  if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan) { // the other point must not be in the same scan
                     if (pointSqDis < minPointSqDis2) {
                       minPointSqDis2 = pointSqDis;
                       minPointInd2 = j;
                     }
                   }
                 }
-                for (int j = closestPointInd - 1; j >= 0; j--) {
+                for (int j = closestPointInd - 1; j >= 0; j--) { // search backward points
                   if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan - 2.5) {
                     break;
                   }
-
+				   // squared distance between the other point and pointSel
                   pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
                                (laserCloudCornerLast->points[j].x - pointSel.x) + 
                                (laserCloudCornerLast->points[j].y - pointSel.y) * 
@@ -512,7 +524,7 @@ int main(int argc, char** argv)
                                (laserCloudCornerLast->points[j].z - pointSel.z) * 
                                (laserCloudCornerLast->points[j].z - pointSel.z);
 
-                  if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan) {
+                  if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan) { // the other point must not be in the same scan
                     if (pointSqDis < minPointSqDis2) {
                       minPointSqDis2 = pointSqDis;
                       minPointInd2 = j;
@@ -521,11 +533,11 @@ int main(int argc, char** argv)
                 }
               }
 
-              pointSearchCornerInd1[i] = closestPointInd;
-              pointSearchCornerInd2[i] = minPointInd2;
+              pointSearchCornerInd1[i] = closestPointInd; // the first point in last cloud closest to pointSel (distance < 5)
+              pointSearchCornerInd2[i] = minPointInd2; // the second point in neaby scan within last clound closest to pointSel (distance < 5)
             }
 
-            if (pointSearchCornerInd2[i] >= 0) {
+            if (pointSearchCornerInd2[i] >= 0) { // found all two closest points
               tripod1 = laserCloudCornerLast->points[pointSearchCornerInd1[i]];
               tripod2 = laserCloudCornerLast->points[pointSearchCornerInd2[i]];
 
@@ -539,6 +551,11 @@ int main(int argc, char** argv)
               float y2 = tripod2.y;
               float z2 = tripod2.z;
 
+			  // cross(pointSel - tripod1, pointSel - tripod2) =
+			  //  [(y0 - y1) (z0 - z2) - (y0 - y2) (z0 - z1),
+			  //   (x0 - x2) (z0 - z1) - (x0 - x1) (z0 - z2), 
+			  //   (x0 - x1) (y0 - y2) - (x0 - x2) (y0 - y1)]
+			  // a012 = |cross(pointSel - tripod1, pointSel - tripod2)|
               float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                          * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
                          + ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
@@ -546,27 +563,29 @@ int main(int argc, char** argv)
                          + ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))
                          * ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)));
 
+			  // l12 = |tripod1 - tripod2|
               float l12 = sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2) + (z1 - z2)*(z1 - z2));
 
+			  // diff(ld2, x0), ld2 is the distance from pointSel to edge (tripod1, tripod2) as defined below
               float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
                        + (z1 - z2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))) / a012 / l12;
-
+			  // diff(ld2, y0)
               float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
                        - (z1 - z2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
-
+			  // diff(ld2, z0)
               float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
                        + (y1 - y2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
 
-              float ld2 = a012 / l12;
+              float ld2 = a012 / l12; // distance from pointSel to edge (tripod1, tripod2)
 
-              pointProj = pointSel;
-              pointProj.x -= la * ld2;
-              pointProj.y -= lb * ld2;
-              pointProj.z -= lc * ld2;
+              //pointProj = pointSel;
+              //pointProj.x -= la * ld2;
+              //pointProj.y -= lb * ld2;
+              //pointProj.z -= lc * ld2;
 
-              float s = 1;
+              float s = 1; // TODO: step? weight?
               if (iterCount >= 5) {
-                s = 1 - 1.8 * fabs(ld2);
+                s = 1 - 1.8 * fabs(ld2); // TODO: why adjust s like this?
               }
 
               coeff.x = s * la;
@@ -574,7 +593,7 @@ int main(int argc, char** argv)
               coeff.z = s * lc;
               coeff.intensity = s * ld2;
 
-              if (s > 0.1 && ld2 != 0) {
+              if (s > 0.1 && ld2 != 0) { // apply this correspondence only when s is not too small and distance is not zero
                 laserCloudOri->push_back(cornerPointsSharp->points[i]);
                 coeffSel->push_back(coeff);
               }
@@ -584,19 +603,20 @@ int main(int argc, char** argv)
           for (int i = 0; i < surfPointsFlatNum; i++) {
             TransformToStart(&surfPointsFlat->points[i], &pointSel);
 
-            if (iterCount % 5 == 0) {
+            if (iterCount % 5 == 0) { // time to find correspondence with planar patches
               kdtreeSurfLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
-              int closestPointInd = -1, minPointInd2 = -1, minPointInd3 = -1;
-              if (pointSearchSqDis[0] < 25) {
+              int closestPointInd = -1, minPointInd2 = -1, minPointInd3 = -1; // another point closest to closestPointInd [minPointInd2->within] / [minPointInd3->not within] same scan
+              if (pointSearchSqDis[0] < 25) { // when distance to the found nearest point pointSearchInd[0] in last cloud be < 5
                 closestPointInd = pointSearchInd[0];
-                int closestPointScan = int(laserCloudSurfLast->points[closestPointInd].intensity);
+                int closestPointScan = int(laserCloudSurfLast->points[closestPointInd].intensity); // get the scan line id of closestPointInd
 
                 float pointSqDis, minPointSqDis2 = 25, minPointSqDis3 = 25;
-                for (int j = closestPointInd + 1; j < surfPointsFlatNum; j++) {
-                  if (int(laserCloudSurfLast->points[j].intensity) > closestPointScan + 2.5) {
+                for (int j = closestPointInd + 1; j < surfPointsFlatNum; j++) { // search forward points, find the other point in last cloud
+				  // TODO: j is bounded by surfPointsFlatNum, can it be used to index laserCloudSurfLast?
+                  if (int(laserCloudSurfLast->points[j].intensity) > closestPointScan + 2.5) { // search another point within 2.5 scans from pointSel
                     break;
                   }
-
+				  // squared distance between the other point and pointSel
                   pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
                                (laserCloudSurfLast->points[j].x - pointSel.x) + 
                                (laserCloudSurfLast->points[j].y - pointSel.y) * 
@@ -604,23 +624,23 @@ int main(int argc, char** argv)
                                (laserCloudSurfLast->points[j].z - pointSel.z) * 
                                (laserCloudSurfLast->points[j].z - pointSel.z);
 
-                  if (int(laserCloudSurfLast->points[j].intensity) <= closestPointScan) {
+                  if (int(laserCloudSurfLast->points[j].intensity) <= closestPointScan) { // within same scan
                      if (pointSqDis < minPointSqDis2) {
                        minPointSqDis2 = pointSqDis;
                        minPointInd2 = j;
                      }
-                  } else {
+                  } else { // not within same scan
                      if (pointSqDis < minPointSqDis3) {
                        minPointSqDis3 = pointSqDis;
                        minPointInd3 = j;
                      }
                   }
                 }
-                for (int j = closestPointInd - 1; j >= 0; j--) {
-                  if (int(laserCloudSurfLast->points[j].intensity) < closestPointScan - 2.5) {
+                for (int j = closestPointInd - 1; j >= 0; j--) { // search backward points, find the other point in last cloud
+                  if (int(laserCloudSurfLast->points[j].intensity) < closestPointScan - 2.5) { // search another point within 2.5 scans from pointSel
                     break;
                   }
-
+				  // squared distance between the other point and pointSel
                   pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
                                (laserCloudSurfLast->points[j].x - pointSel.x) + 
                                (laserCloudSurfLast->points[j].y - pointSel.y) * 
@@ -628,12 +648,12 @@ int main(int argc, char** argv)
                                (laserCloudSurfLast->points[j].z - pointSel.z) * 
                                (laserCloudSurfLast->points[j].z - pointSel.z);
 
-                  if (int(laserCloudSurfLast->points[j].intensity) >= closestPointScan) {
+                  if (int(laserCloudSurfLast->points[j].intensity) >= closestPointScan) { // within same scan
                     if (pointSqDis < minPointSqDis2) {
                       minPointSqDis2 = pointSqDis;
                       minPointInd2 = j;
                     }
-                  } else {
+                  } else { // not within same scan
                     if (pointSqDis < minPointSqDis3) {
                       minPointSqDis3 = pointSqDis;
                       minPointInd3 = j;
@@ -642,12 +662,13 @@ int main(int argc, char** argv)
                 }
               }
 
+			  // the planar patch
               pointSearchSurfInd1[i] = closestPointInd;
               pointSearchSurfInd2[i] = minPointInd2;
               pointSearchSurfInd3[i] = minPointInd3;
             }
 
-            if (pointSearchSurfInd2[i] >= 0 && pointSearchSurfInd3[i] >= 0) {
+            if (pointSearchSurfInd2[i] >= 0 && pointSearchSurfInd3[i] >= 0) { // found the planar patch
               tripod1 = laserCloudSurfLast->points[pointSearchSurfInd1[i]];
               tripod2 = laserCloudSurfLast->points[pointSearchSurfInd2[i]];
               tripod3 = laserCloudSurfLast->points[pointSearchSurfInd3[i]];
@@ -666,16 +687,22 @@ int main(int argc, char** argv)
               pc /= ps;
               pd /= ps;
 
+			  // this is exactly the distance from pointSel to planar patch {tripod1, tripod2, tripod3}
               float pd2 = pa * pointSel.x + pb * pointSel.y + pc * pointSel.z + pd;
 
-              pointProj = pointSel;
+			  // now 
+			  // pa == diff(pd2, x0)
+			  // pb == diff(pd2, y0)
+			  // pc == diff(pd2, z0)
+
+              /*pointProj = pointSel;
               pointProj.x -= pa * pd2;
               pointProj.y -= pb * pd2;
-              pointProj.z -= pc * pd2;
+              pointProj.z -= pc * pd2;*/
 
-              float s = 1;
+              float s = 1; // TODO: step? weight?
               if (iterCount >= 5) {
-                s = 1 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
+                s = 1 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x  // TODO: why adjust s like this?
                   + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
               }
 
@@ -684,7 +711,7 @@ int main(int argc, char** argv)
               coeff.z = s * pc;
               coeff.intensity = s * pd2;
 
-              if (s > 0.1 && pd2 != 0) {
+              if (s > 0.1 && pd2 != 0) { // apply this correspondence only when s is not too small and distance is not zero
                 laserCloudOri->push_back(surfPointsFlat->points[i]);
                 coeffSel->push_back(coeff);
               }
@@ -703,12 +730,12 @@ int main(int argc, char** argv)
           cv::Mat matAtB(6, 1, CV_32F, cv::Scalar::all(0));
           cv::Mat matX(6, 1, CV_32F, cv::Scalar::all(0));
           for (int i = 0; i < pointSelNum; i++) {
-            pointOri = laserCloudOri->points[i];
-            coeff = coeffSel->points[i];
+            pointOri = laserCloudOri->points[i]; // the original coordinates (not transformed to start time point) of feature point in current cloud
+            coeff = coeffSel->points[i]; // the scaled gradients: diff(distance, {x, y, z}), and the scaled distance. x/y/z are coordinates of feature points in the starting frame 
 
             float s = 1;
 
-            float srx = sin(s * transform[0]);
+            float srx = sin(s * transform[0]); // 
             float crx = cos(s * transform[0]);
             float sry = sin(s * transform[1]);
             float cry = cos(s * transform[1]);
@@ -764,7 +791,7 @@ int main(int argc, char** argv)
           matAtB = matAt * matB;
           cv::solve(matAtA, matAtB, matX, cv::DECOMP_QR);
 
-          if (iterCount == 0) {
+          if (iterCount == 0) { // initialize
             cv::Mat matE(1, 6, CV_32F, cv::Scalar::all(0));
             cv::Mat matV(6, 6, CV_32F, cv::Scalar::all(0));
             cv::Mat matV2(6, 6, CV_32F, cv::Scalar::all(0));

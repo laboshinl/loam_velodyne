@@ -78,8 +78,8 @@ float imuShiftXStart = 0, imuShiftYStart = 0, imuShiftZStart = 0;
 float imuVeloXCur = 0, imuVeloYCur = 0, imuVeloZCur = 0;
 float imuShiftXCur = 0, imuShiftYCur = 0, imuShiftZCur = 0;
 
-float imuShiftFromStartXCur = 0, imuShiftFromStartYCur = 0, imuShiftFromStartZCur = 0;
-float imuVeloFromStartXCur = 0, imuVeloFromStartYCur = 0, imuVeloFromStartZCur = 0;
+float imuShiftFromStartXCur = 0, imuShiftFromStartYCur = 0, imuShiftFromStartZCur = 0; // updated by ShiftToStartIMU()
+float imuVeloFromStartXCur = 0, imuVeloFromStartYCur = 0, imuVeloFromStartZCur = 0; // updated by VeloToStartIMU()
 
 double imuTime[imuQueLength] = {0};
 float imuRoll[imuQueLength] = {0};
@@ -89,11 +89,11 @@ float imuYaw[imuQueLength] = {0};
 float imuAccX[imuQueLength] = {0};
 float imuAccY[imuQueLength] = {0};
 float imuAccZ[imuQueLength] = {0};
-
+// updated by AccumulateIMUShift()
 float imuVeloX[imuQueLength] = {0};
 float imuVeloY[imuQueLength] = {0};
 float imuVeloZ[imuQueLength] = {0};
-
+// updated by AccumulateIMUShift()
 float imuShiftX[imuQueLength] = {0};
 float imuShiftY[imuQueLength] = {0};
 float imuShiftZ[imuQueLength] = {0};
@@ -105,6 +105,7 @@ ros::Publisher pubSurfPointsFlat;
 ros::Publisher pubSurfPointsLessFlat;
 ros::Publisher pubImuTrans;
 
+// imu shift from start vector (imuShiftFromStart*Cur) converted into start imu coordinates?
 void ShiftToStartIMU(float pointTime)
 {
   imuShiftFromStartXCur = imuShiftXCur - imuShiftXStart - imuVeloXStart * pointTime;
@@ -123,7 +124,7 @@ void ShiftToStartIMU(float pointTime)
   imuShiftFromStartYCur = -sin(imuRollStart) * x2 + cos(imuRollStart) * y2;
   imuShiftFromStartZCur = z2;
 }
-
+// imu velocity from start vector (imuVeloFromStart*Cur) converted into start imu coordinates?
 void VeloToStartIMU()
 {
   imuVeloFromStartXCur = imuVeloXCur - imuVeloXStart;
@@ -142,7 +143,7 @@ void VeloToStartIMU()
   imuVeloFromStartYCur = -sin(imuRollStart) * x2 + cos(imuRollStart) * y2;
   imuVeloFromStartZCur = z2;
 }
-
+// points converted into start imu coordinates?
 void TransformToStartIMU(PointType *p)
 {
   float x1 = cos(imuRollCur) * p->x - sin(imuRollCur) * p->y;
@@ -169,7 +170,7 @@ void TransformToStartIMU(PointType *p)
   p->y = -sin(imuRollStart) * x5 + cos(imuRollStart) * y5 + imuShiftFromStartYCur;
   p->z = z5 + imuShiftFromStartZCur;
 }
-
+// compute last shift to imuShift*[imuPointerLast] and velo to imuVelo*[imuPointerLast] using previous shift/velo/acc
 void AccumulateIMUShift()
 {
   float roll = imuRoll[imuPointerLast];
@@ -218,34 +219,36 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     return;
   }
 
-  std::vector<int> scanStartInd(N_SCANS, 0);
-  std::vector<int> scanEndInd(N_SCANS, 0);
+  std::vector<int> scanStartInd(N_SCANS, 0); // not used until line 356
+  std::vector<int> scanEndInd(N_SCANS, 0); // not used until line 356
   
-  double timeScanCur = laserCloudMsg->header.stamp.toSec();
-  pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
+  double timeScanCur = laserCloudMsg->header.stamp.toSec(); // time point of current scan
+  pcl::PointCloud<pcl::PointXYZ> laserCloudIn; // input cloud, NaN points removed
   pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(laserCloudIn, laserCloudIn, indices);
-  int cloudSize = laserCloudIn.points.size();
-  float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x);
-  float endOri = -atan2(laserCloudIn.points[cloudSize - 1].y,
-                        laserCloudIn.points[cloudSize - 1].x) + 2 * M_PI;
+  int cloudSize = laserCloudIn.points.size(); // number of cloud points
+  float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x); // ori of first point in cloud on origin x-y plane
+  float endOri = -atan2(laserCloudIn.points[cloudSize - 1].y, // ori of last point in clound on origin x-y plane
+                        laserCloudIn.points[cloudSize - 1].x) + 2 * M_PI; 
 
   if (endOri - startOri > 3 * M_PI) {
     endOri -= 2 * M_PI;
   } else if (endOri - startOri < M_PI) {
     endOri += 2 * M_PI;
   }
+  
   bool halfPassed = false;
   int count = cloudSize;
   PointType point;
   std::vector<pcl::PointCloud<PointType> > laserCloudScans(N_SCANS);
+
   for (int i = 0; i < cloudSize; i++) {
     point.x = laserCloudIn.points[i].y;
     point.y = laserCloudIn.points[i].z;
     point.z = laserCloudIn.points[i].x;
 
-    float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI;
+    float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI; // angle of origin z from origin x-y plane (-90, +90)
     int scanID;
     int roundedAngle = int(angle + (angle<0.0?-0.5:+0.5)); 
     if (roundedAngle > 0){
@@ -452,14 +455,15 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   }
 
 
-  pcl::PointCloud<PointType> cornerPointsSharp;
-  pcl::PointCloud<PointType> cornerPointsLessSharp;
-  pcl::PointCloud<PointType> surfPointsFlat;
-  pcl::PointCloud<PointType> surfPointsLessFlat;
+  pcl::PointCloud<PointType> cornerPointsSharp;   // the outputs
+  pcl::PointCloud<PointType> cornerPointsLessSharp;  // the outputs
+  pcl::PointCloud<PointType> surfPointsFlat;  // the outputs
+  pcl::PointCloud<PointType> surfPointsLessFlat;  // the outputs
 
   for (int i = 0; i < N_SCANS; i++) {
     pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<PointType>);
     for (int j = 0; j < 6; j++) {
+	 
       int sp = (scanStartInd[i] * (6 - j)  + scanEndInd[i] * j) / 6;
       int ep = (scanStartInd[i] * (5 - j)  + scanEndInd[i] * (j + 1)) / 6 - 1;
 

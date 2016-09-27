@@ -449,6 +449,8 @@ int main(int argc, char** argv)
         if (transformTobeMapped[4] + 25.0 < 0) centerCubeJ--;
         if (transformTobeMapped[5] + 25.0 < 0) centerCubeK--;
 
+		// shift block of point cloud
+
         while (centerCubeI < 3) {
           for (int j = 0; j < laserCloudHeight; j++) {
             for (int k = 0; k < laserCloudDepth; k++) {
@@ -709,6 +711,7 @@ int main(int argc, char** argv)
             laserCloudOri->clear();
             coeffSel->clear();
 
+			// find correspondance
             for (int i = 0; i < laserCloudCornerStackNum; i++) {
               pointOri = laserCloudCornerStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel);
@@ -815,7 +818,7 @@ int main(int argc, char** argv)
                 }
               }
             }
-
+			// find correspondance
             for (int i = 0; i < laserCloudSurfStackNum; i++) {
               pointOri = laserCloudSurfStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel); 
