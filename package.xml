@@ -36,6 +36,5 @@
   <test_depend>rostest</test_depend>
   <test_depend>rosbag</test_depend>
 
-  <export>
-  </export>
+  <export></export>
 </package>
