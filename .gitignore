@@ -10,3 +10,10 @@ CMakeFiles
 cmake_install.cmake  
 Makefile
 
+.vscode
+.tags*
+.idea
+.settings
+*.VC.db
+*.VC.opendb
+*.suo
