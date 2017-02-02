@@ -38,6 +38,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/common/eigen.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <ros/ros.h>
@@ -46,16 +47,17 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
-float transformSum[6] = {0};
-float transformIncre[6] = {0};
-float transformMapped[6] = {0};
-float transformBefMapped[6] = {0};
-float transformAftMapped[6] = {0};
+#include <but_velodyne/KittiUtils.h>
 
 ros::Publisher *pubLaserOdometry2Pointer = NULL;
 tf::TransformBroadcaster *tfBroadcaster2Pointer = NULL;
 nav_msgs::Odometry laserOdometry2;
 tf::StampedTransform laserOdometryTrans2;
+
+float transformSum[6] = {0};
+float transformMapped[6] = {0};
+float transformBefMapped[6] = {0};
+float transformAftMapped[6] = {0};
 
 void transformAssociateToMap()
 {
@@ -69,6 +71,7 @@ void transformAssociateToMap()
   float y2 = cos(transformSum[0]) * y1 + sin(transformSum[0]) * z1;
   float z2 = -sin(transformSum[0]) * y1 + cos(transformSum[0]) * z1;
 
+	float transformIncre[6] = {0};
   transformIncre[3] = cos(transformSum[2]) * x2 + sin(transformSum[2]) * y2;
   transformIncre[4] = -sin(transformSum[2]) * x2 + cos(transformSum[2]) * y2;
   transformIncre[5] = z2;
@@ -146,6 +149,9 @@ void transformAssociateToMap()
 
 void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
 {
+	static int counter = 1;
+	ROS_DEBUG("new odometry #%d", counter++);
+
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
   tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
@@ -172,6 +178,11 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
   laserOdometry2.pose.pose.position.y = transformMapped[4];
   laserOdometry2.pose.pose.position.z = transformMapped[5];
   pubLaserOdometry2Pointer->publish(laserOdometry2);
+
+  Eigen::Affine3f transf = pcl::getTransformation(-transformMapped[3],
+      -transformMapped[4], transformMapped[5], -transformMapped[0],
+      -transformMapped[1], transformMapped[2]);
+  but_velodyne::KittiUtils::printPose(std::cout, transf.matrix());
 
   laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
   laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
