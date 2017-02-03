@@ -38,10 +38,10 @@ target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Op
 add_executable(laserOdometry src/laserOdometry.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(laserMapping src/laserMapping.cpp)
+add_executable(laserMapping src/laserMapping.cpp src/common.cpp)
 target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(transformMaintenance src/transformMaintenance.cpp)
+add_executable(transformMaintenance src/transformMaintenance.cpp src/common.cpp)
 target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
 if (CATKIN_ENABLE_TESTING)

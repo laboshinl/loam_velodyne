@@ -30,9 +30,15 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
+#ifndef __LOAM_COMMON_H__
+#define __LOAM_COMMON_H__
+
+
 #include <cmath>
 
 #include <pcl/point_types.h>
+#include <pcl/common/eigen.h>
+#include <pcl/common/transforms.h>
 
 typedef pcl::PointXYZI PointType;
 
@@ -45,3 +51,17 @@ inline double deg2rad(double degrees)
 {
   return degrees * M_PI / 180.0;
 }
+
+std::vector<float> transformToVec(const Eigen::Affine3f &t);
+
+Eigen::Affine3f vecToTransform(const std::vector<float> &vec);
+
+void swapVec(std::vector<float> &vec);
+
+void swapVecBack(std::vector<float> &vec);
+
+void transformAssociateToMap(std::vector<float> beforeMapping, std::vector<float> afterMapping,
+    std::vector<float> current, std::vector<float> &output);
+
+
+#endif

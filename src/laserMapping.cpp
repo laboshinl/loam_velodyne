@@ -46,6 +46,8 @@
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 
+using namespace std;
+
 const float scanPeriod = 0.1;
 
 const int stackFrameNum = 1;
@@ -93,10 +95,10 @@ pcl::PointCloud<PointType>::Ptr laserCloudSurfArray2[laserCloudNum];
 pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerFromMap(new pcl::KdTreeFLANN<PointType>());
 pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap(new pcl::KdTreeFLANN<PointType>());
 
-float transformSum[6] = {0};
-float transformTobeMapped[6] = {0};
-float transformBefMapped[6] = {0};
-float transformAftMapped[6] = {0};
+vector<float> transformSum(6, 0);
+vector<float> transformTobeMapped(6, 0);
+vector<float> transformBefMapped(6, 0);
+vector<float> transformAftMapped(6, 0);
 
 int imuPointerFront = 0;
 int imuPointerLast = -1;
@@ -105,94 +107,6 @@ const int imuQueLength = 200;
 double imuTime[imuQueLength] = {0};
 float imuRoll[imuQueLength] = {0};
 float imuPitch[imuQueLength] = {0};
-
-void transformAssociateToMap()
-{
-  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
-           - sin(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
-  float y1 = transformBefMapped[4] - transformSum[4];
-  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
-           + cos(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
-
-  float x2 = x1;
-  float y2 = cos(transformSum[0]) * y1 + sin(transformSum[0]) * z1;
-  float z2 = -sin(transformSum[0]) * y1 + cos(transformSum[0]) * z1;
-
-  float transformIncre[6] = {0};
-  transformIncre[3] = cos(transformSum[2]) * x2 + sin(transformSum[2]) * y2;
-  transformIncre[4] = -sin(transformSum[2]) * x2 + cos(transformSum[2]) * y2;
-  transformIncre[5] = z2;
-
-  float sbcx = sin(transformSum[0]);
-  float cbcx = cos(transformSum[0]);
-  float sbcy = sin(transformSum[1]);
-  float cbcy = cos(transformSum[1]);
-  float sbcz = sin(transformSum[2]);
-  float cbcz = cos(transformSum[2]);
-
-  float sblx = sin(transformBefMapped[0]);
-  float cblx = cos(transformBefMapped[0]);
-  float sbly = sin(transformBefMapped[1]);
-  float cbly = cos(transformBefMapped[1]);
-  float sblz = sin(transformBefMapped[2]);
-  float cblz = cos(transformBefMapped[2]);
-
-  float salx = sin(transformAftMapped[0]);
-  float calx = cos(transformAftMapped[0]);
-  float saly = sin(transformAftMapped[1]);
-  float caly = cos(transformAftMapped[1]);
-  float salz = sin(transformAftMapped[2]);
-  float calz = cos(transformAftMapped[2]);
-
-  float srx = -sbcx*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz)
-            - cbcx*sbcy*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
-            - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
-            - cbcx*cbcy*(calx*salz*(cblz*sbly - cbly*sblx*sblz) 
-            - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx);
-  transformTobeMapped[0] = -asin(srx);
-
-  float srycrx = sbcx*(cblx*cblz*(caly*salz - calz*salx*saly)
-               - cblx*sblz*(caly*calz + salx*saly*salz) + calx*saly*sblx)
-               - cbcx*cbcy*((caly*calz + salx*saly*salz)*(cblz*sbly - cbly*sblx*sblz)
-               + (caly*salz - calz*salx*saly)*(sbly*sblz + cbly*cblz*sblx) - calx*cblx*cbly*saly)
-               + cbcx*sbcy*((caly*calz + salx*saly*salz)*(cbly*cblz + sblx*sbly*sblz)
-               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) + calx*cblx*saly*sbly);
-  float crycrx = sbcx*(cblx*sblz*(calz*saly - caly*salx*salz)
-               - cblx*cblz*(saly*salz + caly*calz*salx) + calx*caly*sblx)
-               + cbcx*cbcy*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx)
-               + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) + calx*caly*cblx*cbly)
-               - cbcx*sbcy*((saly*salz + caly*calz*salx)*(cbly*sblz - cblz*sblx*sbly)
-               + (calz*saly - caly*salx*salz)*(cbly*cblz + sblx*sbly*sblz) - calx*caly*cblx*sbly);
-  transformTobeMapped[1] = atan2(srycrx / cos(transformTobeMapped[0]), 
-                                 crycrx / cos(transformTobeMapped[0]));
-  
-  float srzcrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
-               - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
-               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
-               - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
-               + cbcx*sbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
-  float crzcrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
-               - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
-               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
-               - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
-               + cbcx*cbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
-  transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
-                                 crzcrx / cos(transformTobeMapped[0]));
-
-  x1 = cos(transformTobeMapped[2]) * transformIncre[3] - sin(transformTobeMapped[2]) * transformIncre[4];
-  y1 = sin(transformTobeMapped[2]) * transformIncre[3] + cos(transformTobeMapped[2]) * transformIncre[4];
-  z1 = transformIncre[5];
-
-  x2 = x1;
-  y2 = cos(transformTobeMapped[0]) * y1 - sin(transformTobeMapped[0]) * z1;
-  z2 = sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-
-  transformTobeMapped[3] = transformAftMapped[3] 
-                         - (cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2);
-  transformTobeMapped[4] = transformAftMapped[4] - y2;
-  transformTobeMapped[5] = transformAftMapped[5] 
-                         - (-sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2);
-}
 
 void transformUpdate()
 {
@@ -417,7 +331,7 @@ int main(int argc, char** argv)
 
       frameCount++;
       if (frameCount >= stackFrameNum) {
-        transformAssociateToMap();
+        transformAssociateToMap(transformBefMapped, transformAftMapped, transformSum, transformTobeMapped);
 
         int laserCloudCornerLastNum = laserCloudCornerLast->points.size();
         for (int i = 0; i < laserCloudCornerLastNum; i++) {
