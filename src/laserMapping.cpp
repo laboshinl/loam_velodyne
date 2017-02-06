@@ -143,6 +143,7 @@ void transformUpdate()
   }
 }
 
+// pi * transformTobeMapped => po
 void pointAssociateToMap(PointType const * const pi, PointType * const po)
 {
   float x1 = cos(transformTobeMapped[2]) * pi->x

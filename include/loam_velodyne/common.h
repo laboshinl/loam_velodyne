@@ -52,16 +52,11 @@ inline double deg2rad(double degrees)
   return degrees * M_PI / 180.0;
 }
 
-std::vector<float> transformToVec(const Eigen::Affine3f &t);
-
 Eigen::Affine3f vecToTransform(const std::vector<float> &vec);
 
-void swapVec(std::vector<float> &vec);
-
-void swapVecBack(std::vector<float> &vec);
+std::vector<float> transformToVec(const Eigen::Affine3f &t);
 
 void transformAssociateToMap(std::vector<float> beforeMapping, std::vector<float> afterMapping,
     std::vector<float> current, std::vector<float> &output);
-
 
 #endif
