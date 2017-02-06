@@ -42,17 +42,19 @@
 #include <pcl/common/transforms.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/impl/filter.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
-#include <pcl/filters/impl/filter.hpp>
 
 #include <but_velodyne/VelodynePointCloud.h>
 #include <but_velodyne/Visualizer3D.h>
 #include <velodyne_pointcloud/point_types.h>
+
+#include <loam_velodyne/LoamImu.h>
 
 using std::sin;
 using std::cos;
@@ -67,44 +69,13 @@ bool systemInited = false;
 
 const int N_SCANS = VELODYNE_MODEL;	// oring 16
 const int MAX_POINTS = 200*1000;		// orig 40000
-const int imuQueLength = 2000;			// orig 200
 
 float cloudCurvature[MAX_POINTS];
 int cloudSortInd[MAX_POINTS];
 int cloudNeighborPicked[MAX_POINTS];
 int cloudLabel[MAX_POINTS];
 
-int imuPointerFront = 0;
-int imuPointerLast = -1;
-
-float imuRollStart = 0, imuPitchStart = 0, imuYawStart = 0;
-float imuRollCur = 0, imuPitchCur = 0, imuYawCur = 0;
-
-float imuVeloXStart = 0, imuVeloYStart = 0, imuVeloZStart = 0;
-float imuShiftXStart = 0, imuShiftYStart = 0, imuShiftZStart = 0;
-
-float imuVeloXCur = 0, imuVeloYCur = 0, imuVeloZCur = 0;
-float imuShiftXCur = 0, imuShiftYCur = 0, imuShiftZCur = 0;
-
-float imuShiftFromStartXCur = 0, imuShiftFromStartYCur = 0, imuShiftFromStartZCur = 0;
-float imuVeloFromStartXCur = 0, imuVeloFromStartYCur = 0, imuVeloFromStartZCur = 0;
-
-double imuTime[imuQueLength] = {0};
-float imuRoll[imuQueLength] = {0};
-float imuPitch[imuQueLength] = {0};
-float imuYaw[imuQueLength] = {0};
-
-float imuAccX[imuQueLength] = {0};
-float imuAccY[imuQueLength] = {0};
-float imuAccZ[imuQueLength] = {0};
-
-float imuVeloX[imuQueLength] = {0};
-float imuVeloY[imuQueLength] = {0};
-float imuVeloZ[imuQueLength] = {0};
-
-float imuShiftX[imuQueLength] = {0};
-float imuShiftY[imuQueLength] = {0};
-float imuShiftZ[imuQueLength] = {0};
+const int POINT_NEIGHBOURS = 5;
 
 ros::Publisher pubLaserCloud;
 ros::Publisher pubCornerPointsSharp;
@@ -113,265 +84,118 @@ ros::Publisher pubSurfPointsFlat;
 ros::Publisher pubSurfPointsLessFlat;
 ros::Publisher pubImuTrans;
 
-void ShiftToStartIMU(float pointTime)
-{
-  imuShiftFromStartXCur = imuShiftXCur - imuShiftXStart - imuVeloXStart * pointTime;
-  imuShiftFromStartYCur = imuShiftYCur - imuShiftYStart - imuVeloYStart * pointTime;
-  imuShiftFromStartZCur = imuShiftZCur - imuShiftZStart - imuVeloZStart * pointTime;
+LoamImuInput imu(scanPeriod);
 
-  float x1 = cos(imuYawStart) * imuShiftFromStartXCur - sin(imuYawStart) * imuShiftFromStartZCur;
-  float y1 = imuShiftFromStartYCur;
-  float z1 = sin(imuYawStart) * imuShiftFromStartXCur + cos(imuYawStart) * imuShiftFromStartZCur;
-
-  float x2 = x1;
-  float y2 = cos(imuPitchStart) * y1 + sin(imuPitchStart) * z1;
-  float z2 = -sin(imuPitchStart) * y1 + cos(imuPitchStart) * z1;
-
-  imuShiftFromStartXCur = cos(imuRollStart) * x2 + sin(imuRollStart) * y2;
-  imuShiftFromStartYCur = -sin(imuRollStart) * x2 + cos(imuRollStart) * y2;
-  imuShiftFromStartZCur = z2;
+float computeStartHorizontalAngle(const velodyne_pointcloud::PointXYZIR &first_pt) {
+  return -atan2(first_pt.x, first_pt.z);
 }
 
-void VeloToStartIMU()
-{
-  imuVeloFromStartXCur = imuVeloXCur - imuVeloXStart;
-  imuVeloFromStartYCur = imuVeloYCur - imuVeloYStart;
-  imuVeloFromStartZCur = imuVeloZCur - imuVeloZStart;
-
-  float x1 = cos(imuYawStart) * imuVeloFromStartXCur - sin(imuYawStart) * imuVeloFromStartZCur;
-  float y1 = imuVeloFromStartYCur;
-  float z1 = sin(imuYawStart) * imuVeloFromStartXCur + cos(imuYawStart) * imuVeloFromStartZCur;
-
-  float x2 = x1;
-  float y2 = cos(imuPitchStart) * y1 + sin(imuPitchStart) * z1;
-  float z2 = -sin(imuPitchStart) * y1 + cos(imuPitchStart) * z1;
-
-  imuVeloFromStartXCur = cos(imuRollStart) * x2 + sin(imuRollStart) * y2;
-  imuVeloFromStartYCur = -sin(imuRollStart) * x2 + cos(imuRollStart) * y2;
-  imuVeloFromStartZCur = z2;
+float computeEndHorizontalAngle(const velodyne_pointcloud::PointXYZIR &last_pt, float start_angle) {
+  float end_angle = -atan2(last_pt.x, last_pt.z) + 2 * M_PI;
+  if (end_angle - start_angle > 3 * M_PI) {
+    end_angle -= 2 * M_PI;
+  } else if (end_angle - start_angle < M_PI) {
+    end_angle += 2 * M_PI;
+  }
+  return end_angle;
 }
 
-void TransformToStartIMU(PointType *p)
-{
-  float x1 = cos(imuRollCur) * p->x - sin(imuRollCur) * p->y;
-  float y1 = sin(imuRollCur) * p->x + cos(imuRollCur) * p->y;
-  float z1 = p->z;
+// within the scan
+float computeRelativeTime(const PointType &point, float start_angle, float end_angle, bool &half_passed) {
+  float ori = -atan2(point.x, point.z);
+  if (!half_passed) {
+    if (ori < start_angle - M_PI / 2) {
+      ori += 2 * M_PI;
+    } else if (ori > start_angle + M_PI * 3 / 2) {
+      ori -= 2 * M_PI;
+    }
 
-  float x2 = x1;
-  float y2 = cos(imuPitchCur) * y1 - sin(imuPitchCur) * z1;
-  float z2 = sin(imuPitchCur) * y1 + cos(imuPitchCur) * z1;
+    if (ori - start_angle > M_PI) {
+      half_passed = true;
+    }
+  } else {
+    ori += 2 * M_PI;
 
-  float x3 = cos(imuYawCur) * x2 + sin(imuYawCur) * z2;
-  float y3 = y2;
-  float z3 = -sin(imuYawCur) * x2 + cos(imuYawCur) * z2;
-
-  float x4 = cos(imuYawStart) * x3 - sin(imuYawStart) * z3;
-  float y4 = y3;
-  float z4 = sin(imuYawStart) * x3 + cos(imuYawStart) * z3;
-
-  float x5 = x4;
-  float y5 = cos(imuPitchStart) * y4 + sin(imuPitchStart) * z4;
-  float z5 = -sin(imuPitchStart) * y4 + cos(imuPitchStart) * z4;
-
-  p->x = cos(imuRollStart) * x5 + sin(imuRollStart) * y5 + imuShiftFromStartXCur;
-  p->y = -sin(imuRollStart) * x5 + cos(imuRollStart) * y5 + imuShiftFromStartYCur;
-  p->z = z5 + imuShiftFromStartZCur;
+    if (ori < end_angle - M_PI * 3 / 2) {
+      ori += 2 * M_PI;
+    } else if (ori > end_angle + M_PI / 2) {
+      ori -= 2 * M_PI;
+    }
+  }
+  return (ori - start_angle) / (end_angle - start_angle);
 }
 
-void AccumulateIMUShift()
-{
-  float roll = imuRoll[imuPointerLast];
-  float pitch = imuPitch[imuPointerLast];
-  float yaw = imuYaw[imuPointerLast];
-  float accX = imuAccX[imuPointerLast];
-  float accY = imuAccY[imuPointerLast];
-  float accZ = imuAccZ[imuPointerLast];
+float computeCurvature(const pcl::PointCloud<PointType> &cloud, int idx) {
+  float diffX = 0;
+  float diffY = 0;
+  float diffZ = 0;
+  for(int i = -POINT_NEIGHBOURS; i < POINT_NEIGHBOURS; i++) {
+    if(i == 0) {
+      diffX -= cloud[idx].x*2*POINT_NEIGHBOURS;
+      diffY -= cloud[idx].y*2*POINT_NEIGHBOURS;
+      diffZ -= cloud[idx].z*2*POINT_NEIGHBOURS;
+    } else {
+      diffX += cloud[idx + i].x;
+      diffY += cloud[idx + i].y;
+      diffZ += cloud[idx + i].z;
+    }
+  }
+  return diffX * diffX + diffY * diffY + diffZ * diffZ;
+}
 
-  float x1 = cos(roll) * accX - sin(roll) * accY;
-  float y1 = sin(roll) * accX + cos(roll) * accY;
-  float z1 = accZ;
-
-  float x2 = x1;
-  float y2 = cos(pitch) * y1 - sin(pitch) * z1;
-  float z2 = sin(pitch) * y1 + cos(pitch) * z1;
-
-  accX = cos(yaw) * x2 + sin(yaw) * z2;
-  accY = y2;
-  accZ = -sin(yaw) * x2 + cos(yaw) * z2;
-
-  int imuPointerBack = (imuPointerLast + imuQueLength - 1) % imuQueLength;
-  double timeDiff = imuTime[imuPointerLast] - imuTime[imuPointerBack];
-  if (timeDiff < scanPeriod) {
-
-    imuShiftX[imuPointerLast] = imuShiftX[imuPointerBack] + imuVeloX[imuPointerBack] * timeDiff 
-                              + accX * timeDiff * timeDiff / 2;
-    imuShiftY[imuPointerLast] = imuShiftY[imuPointerBack] + imuVeloY[imuPointerBack] * timeDiff 
-                              + accY * timeDiff * timeDiff / 2;
-    imuShiftZ[imuPointerLast] = imuShiftZ[imuPointerBack] + imuVeloZ[imuPointerBack] * timeDiff 
-                              + accZ * timeDiff * timeDiff / 2;
-
-    imuVeloX[imuPointerLast] = imuVeloX[imuPointerBack] + accX * timeDiff;
-    imuVeloY[imuPointerLast] = imuVeloY[imuPointerBack] + accY * timeDiff;
-    imuVeloZ[imuPointerLast] = imuVeloZ[imuPointerBack] + accZ * timeDiff;
+void switchAxis(pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &cloud) {
+  for(pcl::PointCloud<velodyne_pointcloud::PointXYZIR>::iterator p = cloud.begin(); p < cloud.end(); p++) {
+    float x = p->x;
+    p->x = p->y;
+    p->y = p->z;
+    p->z = x;
   }
 }
 
-void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &originalLaserCloudIn,
-		ros::Time stamp) {
+void extractFeatures(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &cloudIn, double timeScanCur,
+    pcl::PointCloud<PointType> &cloudOut,
+    pcl::PointCloud<PointType> &cornerPointsSharp,
+    pcl::PointCloud<PointType> &cornerPointsLessSharp,
+    pcl::PointCloud<PointType> &surfPointsFlat,
+    pcl::PointCloud<PointType> &surfPointsLessFlat) {
+  const int cloudSize = cloudIn.size();
+  float startOri = computeStartHorizontalAngle(cloudIn[0]);
+  float endOri = computeEndHorizontalAngle(cloudIn.back(), startOri);
 
-	double timeScanCur = stamp.toSec();
-
-  std::vector<int> scanStartInd(N_SCANS, 0);
-  std::vector<int> scanEndInd(N_SCANS, 0);
-
-  std::vector<int> indices;
-  pcl::PointCloud<velodyne_pointcloud::PointXYZIR> laserCloudIn;
-  pcl::removeNaNFromPointCloud(originalLaserCloudIn, laserCloudIn, indices);
-  int cloudSize = laserCloudIn.points.size();
-  float startOri = -atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x);
-  float endOri = -atan2(laserCloudIn.points[cloudSize - 1].y,
-                        laserCloudIn.points[cloudSize - 1].x) + 2 * M_PI;
-
-  if (endOri - startOri > 3 * M_PI) {
-    endOri -= 2 * M_PI;
-  } else if (endOri - startOri < M_PI) {
-    endOri += 2 * M_PI;
-  }
   bool halfPassed = false;
-  int count = cloudSize;
   PointType point;
   std::vector<pcl::PointCloud<PointType> > laserCloudScans(N_SCANS);
   for (int i = 0; i < cloudSize; i++) {
-    point.x = laserCloudIn.points[i].y;
-    point.y = laserCloudIn.points[i].z;
-    point.z = laserCloudIn.points[i].x;
+    but_velodyne::copyXYZ(cloudIn[i], point);
 
     float angle = atan(point.y / sqrt(point.x * point.x + point.z * point.z)) * 180 / M_PI;
-    int scanID = laserCloudIn.points[i].ring;
+    int scanID = cloudIn[i].ring;
 
-    float ori = -atan2(point.x, point.z);
-    if (!halfPassed) {
-      if (ori < startOri - M_PI / 2) {
-        ori += 2 * M_PI;
-      } else if (ori > startOri + M_PI * 3 / 2) {
-        ori -= 2 * M_PI;
-      }
-
-      if (ori - startOri > M_PI) {
-        halfPassed = true;
-      }
-    } else {
-      ori += 2 * M_PI;
-
-      if (ori < endOri - M_PI * 3 / 2) {
-        ori += 2 * M_PI;
-      } else if (ori > endOri + M_PI / 2) {
-        ori -= 2 * M_PI;
-      } 
-    }
-
-    float relTime = (ori - startOri) / (endOri - startOri);
+    float relTime = computeRelativeTime(point, startOri, endOri, halfPassed);
     point.intensity = scanID + scanPeriod * relTime;
 
-    if (imuPointerLast >= 0) {
-      float pointTime = relTime * scanPeriod;
-      while (imuPointerFront != imuPointerLast) {
-        if (timeScanCur + pointTime < imuTime[imuPointerFront]) {
-          break;
-        }
-        imuPointerFront = (imuPointerFront + 1) % imuQueLength;
-      }
-
-      if (timeScanCur + pointTime > imuTime[imuPointerFront]) {
-        imuRollCur = imuRoll[imuPointerFront];
-        imuPitchCur = imuPitch[imuPointerFront];
-        imuYawCur = imuYaw[imuPointerFront];
-
-        imuVeloXCur = imuVeloX[imuPointerFront];
-        imuVeloYCur = imuVeloY[imuPointerFront];
-        imuVeloZCur = imuVeloZ[imuPointerFront];
-
-        imuShiftXCur = imuShiftX[imuPointerFront];
-        imuShiftYCur = imuShiftY[imuPointerFront];
-        imuShiftZCur = imuShiftZ[imuPointerFront];
-      } else {
-        int imuPointerBack = (imuPointerFront + imuQueLength - 1) % imuQueLength;
-        float ratioFront = (timeScanCur + pointTime - imuTime[imuPointerBack]) 
-                         / (imuTime[imuPointerFront] - imuTime[imuPointerBack]);
-        float ratioBack = (imuTime[imuPointerFront] - timeScanCur - pointTime) 
-                        / (imuTime[imuPointerFront] - imuTime[imuPointerBack]);
-
-        imuRollCur = imuRoll[imuPointerFront] * ratioFront + imuRoll[imuPointerBack] * ratioBack;
-        imuPitchCur = imuPitch[imuPointerFront] * ratioFront + imuPitch[imuPointerBack] * ratioBack;
-        if (imuYaw[imuPointerFront] - imuYaw[imuPointerBack] > M_PI) {
-          imuYawCur = imuYaw[imuPointerFront] * ratioFront + (imuYaw[imuPointerBack] + 2 * M_PI) * ratioBack;
-        } else if (imuYaw[imuPointerFront] - imuYaw[imuPointerBack] < -M_PI) {
-          imuYawCur = imuYaw[imuPointerFront] * ratioFront + (imuYaw[imuPointerBack] - 2 * M_PI) * ratioBack;
-        } else {
-          imuYawCur = imuYaw[imuPointerFront] * ratioFront + imuYaw[imuPointerBack] * ratioBack;
-        }
-
-        imuVeloXCur = imuVeloX[imuPointerFront] * ratioFront + imuVeloX[imuPointerBack] * ratioBack;
-        imuVeloYCur = imuVeloY[imuPointerFront] * ratioFront + imuVeloY[imuPointerBack] * ratioBack;
-        imuVeloZCur = imuVeloZ[imuPointerFront] * ratioFront + imuVeloZ[imuPointerBack] * ratioBack;
-
-        imuShiftXCur = imuShiftX[imuPointerFront] * ratioFront + imuShiftX[imuPointerBack] * ratioBack;
-        imuShiftYCur = imuShiftY[imuPointerFront] * ratioFront + imuShiftY[imuPointerBack] * ratioBack;
-        imuShiftZCur = imuShiftZ[imuPointerFront] * ratioFront + imuShiftZ[imuPointerBack] * ratioBack;
-      }
-      if (i == 0) {
-        imuRollStart = imuRollCur;
-        imuPitchStart = imuPitchCur;
-        imuYawStart = imuYawCur;
-
-        imuVeloXStart = imuVeloXCur;
-        imuVeloYStart = imuVeloYCur;
-        imuVeloZStart = imuVeloZCur;
-
-        imuShiftXStart = imuShiftXCur;
-        imuShiftYStart = imuShiftYCur;
-        imuShiftZStart = imuShiftZCur;
-      } else {
-        ShiftToStartIMU(pointTime);
-        VeloToStartIMU();
-        TransformToStartIMU(&point);
-      }
+    if (imu.isAvailable()) {
+      imu.improvePointPossition(point, timeScanCur, relTime, (i==0));
     }
     laserCloudScans[scanID].push_back(point);
   }
-  cloudSize = count;
 
-  pcl::PointCloud<PointType> laserCloud;
   for (int i = 0; i < N_SCANS; i++) {
-    laserCloud += laserCloudScans[i];
+    cloudOut += laserCloudScans[i];
   }
+
+  // ring boundaries within the cumulative point cloud
+  std::vector<int> scanStartInd(N_SCANS, 0);
+  std::vector<int> scanEndInd(N_SCANS, 0);
   int scanCount = -1;
-  for (int i = 5; i < cloudSize - 5; i++) {
-    float diffX = laserCloud[i - 5].x + laserCloud[i - 4].x
-                + laserCloud[i - 3].x + laserCloud[i - 2].x
-                + laserCloud[i - 1].x - 10 * laserCloud[i].x
-                + laserCloud[i + 1].x + laserCloud[i + 2].x
-                + laserCloud[i + 3].x + laserCloud[i + 4].x
-                + laserCloud[i + 5].x;
-    float diffY = laserCloud[i - 5].y + laserCloud[i - 4].y
-                + laserCloud[i - 3].y + laserCloud[i - 2].y
-                + laserCloud[i - 1].y - 10 * laserCloud[i].y
-                + laserCloud[i + 1].y + laserCloud[i + 2].y
-                + laserCloud[i + 3].y + laserCloud[i + 4].y
-                + laserCloud[i + 5].y;
-    float diffZ = laserCloud[i - 5].z + laserCloud[i - 4].z
-                + laserCloud[i - 3].z + laserCloud[i - 2].z
-                + laserCloud[i - 1].z - 10 * laserCloud[i].z
-                + laserCloud[i + 1].z + laserCloud[i + 2].z
-                + laserCloud[i + 3].z + laserCloud[i + 4].z
-                + laserCloud[i + 5].z;
-    cloudCurvature[i] = diffX * diffX + diffY * diffY + diffZ * diffZ;
+  for (int i = POINT_NEIGHBOURS; i < cloudSize - POINT_NEIGHBOURS; i++) {
+    cloudCurvature[i] = computeCurvature(cloudOut, i);
     cloudSortInd[i] = i;
     cloudNeighborPicked[i] = 0;
     cloudLabel[i] = 0;
 
-    if (int(laserCloud[i].intensity) != scanCount) {
-      scanCount = int(laserCloud[i].intensity);
+    if (int(cloudOut[i].intensity) != scanCount) {
+      scanCount = int(cloudOut[i].intensity);
 
       if (scanCount > 0 && scanCount < N_SCANS) {
         scanStartInd[scanCount] = i + 5;
@@ -383,69 +207,30 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
   scanEndInd.back() = cloudSize - 5;
 
   for (int i = 5; i < cloudSize - 6; i++) {
-    float diffX = laserCloud[i + 1].x - laserCloud[i].x;
-    float diffY = laserCloud[i + 1].y - laserCloud[i].y;
-    float diffZ = laserCloud[i + 1].z - laserCloud[i].z;
-    float diff = diffX * diffX + diffY * diffY + diffZ * diffZ;
+    float diffNext = pointsSqDistance(cloudOut[i], cloudOut[i + 1]);
 
-    if (diff > 0.1) {
+    if (diffNext > 0.1) {
 
-      float depth1 = sqrt(laserCloud[i].x * laserCloud[i].x +
-                     laserCloud[i].y * laserCloud[i].y +
-                     laserCloud[i].z * laserCloud[i].z);
+      float depthCur = pointNorm(cloudOut[i]);
+      float depthNext = pointNorm(cloudOut[i+1]);
 
-      float depth2 = sqrt(laserCloud[i + 1].x * laserCloud[i + 1].x +
-                     laserCloud[i + 1].y * laserCloud[i + 1].y +
-                     laserCloud[i + 1].z * laserCloud[i + 1].z);
-
-      if (depth1 > depth2) {
-        diffX = laserCloud[i + 1].x - laserCloud[i].x * depth2 / depth1;
-        diffY = laserCloud[i + 1].y - laserCloud[i].y * depth2 / depth1;
-        diffZ = laserCloud[i + 1].z - laserCloud[i].z * depth2 / depth1;
-
-        if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth2 < 0.1) {
-          cloudNeighborPicked[i - 5] = 1;
-          cloudNeighborPicked[i - 4] = 1;
-          cloudNeighborPicked[i - 3] = 1;
-          cloudNeighborPicked[i - 2] = 1;
-          cloudNeighborPicked[i - 1] = 1;
-          cloudNeighborPicked[i] = 1;
+      if (depthCur > depthNext) {
+        if (normalizedPointsDistance(cloudOut[i+1], 1.0, cloudOut[i], depthNext/depthCur) / depthNext < 0.1) {
+          std::fill(&cloudNeighborPicked[i-POINT_NEIGHBOURS], &cloudNeighborPicked[i+1], 1);
         }
       } else {
-        diffX = laserCloud[i + 1].x * depth1 / depth2 - laserCloud[i].x;
-        diffY = laserCloud[i + 1].y * depth1 / depth2 - laserCloud[i].y;
-        diffZ = laserCloud[i + 1].z * depth1 / depth2 - laserCloud[i].z;
-
-        if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth1 < 0.1) {
-          cloudNeighborPicked[i + 1] = 1;
-          cloudNeighborPicked[i + 2] = 1;
-          cloudNeighborPicked[i + 3] = 1;
-          cloudNeighborPicked[i + 4] = 1;
-          cloudNeighborPicked[i + 5] = 1;
-          cloudNeighborPicked[i + 6] = 1;
+        if (normalizedPointsDistance(cloudOut[i+1], depthCur/depthNext, cloudOut[i], 1.0) / depthCur < 0.1) {
+          std::fill(&cloudNeighborPicked[i+1], &cloudNeighborPicked[i+POINT_NEIGHBOURS+2], 1);
         }
       }
     }
 
-    float diffX2 = laserCloud[i].x - laserCloud[i - 1].x;
-    float diffY2 = laserCloud[i].y - laserCloud[i - 1].y;
-    float diffZ2 = laserCloud[i].z - laserCloud[i - 1].z;
-    float diff2 = diffX2 * diffX2 + diffY2 * diffY2 + diffZ2 * diffZ2;
-
-    float dis = laserCloud[i].x * laserCloud[i].x
-              + laserCloud[i].y * laserCloud[i].y
-              + laserCloud[i].z * laserCloud[i].z;
-
-    if (diff > 0.0002 * dis && diff2 > 0.0002 * dis) {
+    float dist = pointSqNorm(cloudOut[i]);
+    float diffPrev = pointsSqDistance(cloudOut[i], cloudOut[i - 1]);
+    if (diffNext > 0.0002 * dist && diffPrev > 0.0002 * dist) {
       cloudNeighborPicked[i] = 1;
     }
   }
-
-
-  pcl::PointCloud<PointType> cornerPointsSharp;
-  pcl::PointCloud<PointType> cornerPointsLessSharp;
-  pcl::PointCloud<PointType> surfPointsFlat;
-  pcl::PointCloud<PointType> surfPointsLessFlat;
 
   for (int ring = 0; ring < N_SCANS; ring++) {
     pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<PointType>);
@@ -472,40 +257,26 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
           largestPickedNum++;
           if (largestPickedNum <= 2) {
             cloudLabel[ind] = 2;
-            cornerPointsSharp.push_back(laserCloud[ind]);
-            cornerPointsLessSharp.push_back(laserCloud[ind]);
+            cornerPointsSharp.push_back(cloudOut[ind]);
+            cornerPointsLessSharp.push_back(cloudOut[ind]);
           } else if (largestPickedNum <= 20) {
             cloudLabel[ind] = 1;
-            cornerPointsLessSharp.push_back(laserCloud[ind]);
+            cornerPointsLessSharp.push_back(cloudOut[ind]);
           } else {
             break;
           }
 
           cloudNeighborPicked[ind] = 1;
           for (int l = 1; l <= 5; l++) {
-            float diffX = laserCloud[ind + l].x
-                        - laserCloud[ind + l - 1].x;
-            float diffY = laserCloud[ind + l].y
-                        - laserCloud[ind + l - 1].y;
-            float diffZ = laserCloud[ind + l].z
-                        - laserCloud[ind + l - 1].z;
-            if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {
+            if (pointsSqDistance(cloudOut[ind + l], cloudOut[ind + l - 1]) > 0.05) {
               break;
             }
-
             cloudNeighborPicked[ind + l] = 1;
           }
           for (int l = -1; l >= -5; l--) {
-            float diffX = laserCloud[ind + l].x
-                        - laserCloud[ind + l + 1].x;
-            float diffY = laserCloud[ind + l].y
-                        - laserCloud[ind + l + 1].y;
-            float diffZ = laserCloud[ind + l].z
-                        - laserCloud[ind + l + 1].z;
-            if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {
+            if (pointsSqDistance(cloudOut[ind + l], cloudOut[ind + l + 1]) > 0.05) {
               break;
             }
-
             cloudNeighborPicked[ind + l] = 1;
           }
         }
@@ -518,7 +289,7 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
             cloudCurvature[ind] < 0.1) {
 
           cloudLabel[ind] = -1;
-          surfPointsFlat.push_back(laserCloud[ind]);
+          surfPointsFlat.push_back(cloudOut[ind]);
 
           smallestPickedNum++;
           if (smallestPickedNum >= 4) {
@@ -527,29 +298,15 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
 
           cloudNeighborPicked[ind] = 1;
           for (int l = 1; l <= 5; l++) {
-            float diffX = laserCloud[ind + l].x
-                        - laserCloud[ind + l - 1].x;
-            float diffY = laserCloud[ind + l].y
-                        - laserCloud[ind + l - 1].y;
-            float diffZ = laserCloud[ind + l].z
-                        - laserCloud[ind + l - 1].z;
-            if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {
+            if (pointsSqDistance(cloudOut[ind + l], cloudOut[ind + l - 1]) > 0.05) {
               break;
             }
-
             cloudNeighborPicked[ind + l] = 1;
           }
           for (int l = -1; l >= -5; l--) {
-            float diffX = laserCloud[ind + l].x
-                        - laserCloud[ind + l + 1].x;
-            float diffY = laserCloud[ind + l].y
-                        - laserCloud[ind + l + 1].y;
-            float diffZ = laserCloud[ind + l].z
-                        - laserCloud[ind + l + 1].z;
-            if (diffX * diffX + diffY * diffY + diffZ * diffZ > 0.05) {
+            if (pointsSqDistance(cloudOut[ind + l], cloudOut[ind + l + 1]) > 0.05) {
               break;
             }
-
             cloudNeighborPicked[ind + l] = 1;
           }
         }
@@ -557,7 +314,7 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
 
       for (int k = sp; k <= ep; k++) {
         if (cloudLabel[k] <= 0) {
-          surfPointsLessFlatScan->push_back(laserCloud[k]);
+          surfPointsLessFlatScan->push_back(cloudOut[k]);
         }
       }
     }
@@ -571,55 +328,36 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
     surfPointsLessFlat += surfPointsLessFlatScanDS;
   }
 
-  sensor_msgs::PointCloud2 laserCloudOutMsg;
-  pcl::toROSMsg(laserCloud, laserCloudOutMsg);
-  laserCloudOutMsg.header.stamp = stamp;
-  laserCloudOutMsg.header.frame_id = "/camera";
-  pubLaserCloud.publish(laserCloudOutMsg);
+}
 
-  sensor_msgs::PointCloud2 cornerPointsSharpMsg;
-  pcl::toROSMsg(cornerPointsSharp, cornerPointsSharpMsg);
-  cornerPointsSharpMsg.header.stamp = stamp;
-  cornerPointsSharpMsg.header.frame_id = "/camera";
-  pubCornerPointsSharp.publish(cornerPointsSharpMsg);
+void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &originalLaserCloudIn, ros::Time stamp) {
 
-  sensor_msgs::PointCloud2 cornerPointsLessSharpMsg;
-  pcl::toROSMsg(cornerPointsLessSharp, cornerPointsLessSharpMsg);
-  cornerPointsLessSharpMsg.header.stamp = stamp;
-  cornerPointsLessSharpMsg.header.frame_id = "/camera";
-  pubCornerPointsLessSharp.publish(cornerPointsLessSharpMsg);
+  double timeScanCur = stamp.toSec();
 
-  sensor_msgs::PointCloud2 surfPointsFlat2;
-  pcl::toROSMsg(surfPointsFlat, surfPointsFlat2);
-  surfPointsFlat2.header.stamp = stamp;
-  surfPointsFlat2.header.frame_id = "/camera";
-  pubSurfPointsFlat.publish(surfPointsFlat2);
+  std::vector<int> indices;
+  pcl::PointCloud<velodyne_pointcloud::PointXYZIR> laserCloudIn;
+  pcl::removeNaNFromPointCloud(originalLaserCloudIn, laserCloudIn, indices);
+  switchAxis(laserCloudIn);
 
-  sensor_msgs::PointCloud2 surfPointsLessFlat2;
-  pcl::toROSMsg(surfPointsLessFlat, surfPointsLessFlat2);
-  surfPointsLessFlat2.header.stamp = stamp;
-  surfPointsLessFlat2.header.frame_id = "/camera";
-  pubSurfPointsLessFlat.publish(surfPointsLessFlat2);
+  pcl::PointCloud<PointType> laserCloudOut;
+  pcl::PointCloud<PointType> cornerPointsSharp;
+  pcl::PointCloud<PointType> cornerPointsLessSharp;
+  pcl::PointCloud<PointType> surfPointsFlat;
+  pcl::PointCloud<PointType> surfPointsLessFlat;
 
-  pcl::PointCloud<pcl::PointXYZ> imuTrans(4, 1);
-  imuTrans.points[0].x = imuPitchStart;
-  imuTrans.points[0].y = imuYawStart;
-  imuTrans.points[0].z = imuRollStart;
+  // laserCloudIn is ring split & concatenated back to laserCloudOut
+  extractFeatures(laserCloudIn, timeScanCur, laserCloudOut,
+      cornerPointsSharp, cornerPointsLessSharp,
+      surfPointsFlat, surfPointsLessFlat);
 
-  imuTrans.points[1].x = imuPitchCur;
-  imuTrans.points[1].y = imuYawCur;
-  imuTrans.points[1].z = imuRollCur;
-
-  imuTrans.points[2].x = imuShiftFromStartXCur;
-  imuTrans.points[2].y = imuShiftFromStartYCur;
-  imuTrans.points[2].z = imuShiftFromStartZCur;
-
-  imuTrans.points[3].x = imuVeloFromStartXCur;
-  imuTrans.points[3].y = imuVeloFromStartYCur;
-  imuTrans.points[3].z = imuVeloFromStartZCur;
+  publishCloud(laserCloudOut, pubLaserCloud, stamp, "/camera");
+  publishCloud(cornerPointsSharp, pubCornerPointsSharp, stamp, "/camera");
+  publishCloud(cornerPointsLessSharp, pubCornerPointsLessSharp, stamp, "/camera");
+  publishCloud(surfPointsFlat, pubSurfPointsFlat, stamp, "/camera");
+  publishCloud(surfPointsLessFlat, pubSurfPointsLessFlat, stamp, "/camera");
 
   sensor_msgs::PointCloud2 imuTransMsg;
-  pcl::toROSMsg(imuTrans, imuTransMsg);
+  pcl::toROSMsg(imu.to4Points(), imuTransMsg);
   imuTransMsg.header.stamp = stamp;
   imuTransMsg.header.frame_id = "/camera";
   pubImuTrans.publish(imuTransMsg);
@@ -635,57 +373,14 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     return;
   }
 
-  pcl::PointCloud<velodyne_pointcloud::PointXYZIR> laserCloudIn;
+  but_velodyne::VelodynePointCloud laserCloudIn;
   pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
 
   processLasserCloud(laserCloudIn, laserCloudMsg->header.stamp);
 }
 
-void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
-{
-  double roll, pitch, yaw;
-  tf::Quaternion orientation;
-  tf::quaternionMsgToTF(imuIn->orientation, orientation);
-  tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-
-  float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
-  float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
-  float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
-
-  imuPointerLast = (imuPointerLast + 1) % imuQueLength;
-
-  imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
-  imuRoll[imuPointerLast] = roll;
-  imuPitch[imuPointerLast] = pitch;
-  imuYaw[imuPointerLast] = yaw;
-  imuAccX[imuPointerLast] = accX;
-  imuAccY[imuPointerLast] = accY;
-  imuAccZ[imuPointerLast] = accZ;
-
-  AccumulateIMUShift();
-}
-
 bool endsWith(const string &str, const string &suffix) {
   return suffix == str.substr(str.size() - suffix.size());
-}
-
-vector<string> getFilesInDir(const std::string &dirname,
-    const std::string &suffix) {
-  vector<string> files;
-  DIR *dir;
-  struct dirent *ent;
-  if ((dir = opendir(dirname.c_str())) != NULL) {
-    while ((ent = readdir(dir)) != NULL) {
-      string file = ent->d_name;
-      if (endsWith(file, suffix)) {
-        files.push_back(file);
-      }
-    }
-    closedir(dir);
-  } else {
-    perror(dirname.c_str());
-  }
-  return files;
 }
 
 void processCloudFiles(const vector<string> &files) {
@@ -709,14 +404,6 @@ void processCloudFiles(const vector<string> &files) {
     usleep(90 * 1000);
   }
   cout << "DONE" << endl;
-}
-
-void processCloudFiles(std::string dirname) {
-  vector<string> files = getFilesInDir(dirname, ".bin");
-  if (files.empty()) {
-    files = getFilesInDir(dirname, ".pcd");
-  }
-  processCloudFiles(files);
 }
 
 int main(int argc, char** argv)
@@ -747,7 +434,7 @@ int main(int argc, char** argv)
     processCloudFiles(files);
   } else {
     ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>( "/velodyne_points", 2, laserCloudHandler);
-    ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu>("/imu/data", 50, imuHandler);
+    ros::Subscriber subImu = nh.subscribe<sensor_msgs::Imu>("/imu/data", 50, &LoamImuInput::imuHandler, &imu);
     ros::spin();
   }
 

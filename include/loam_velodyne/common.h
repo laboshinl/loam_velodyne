@@ -40,6 +40,12 @@
 #include <pcl/common/eigen.h>
 #include <pcl/common/transforms.h>
 
+#include <velodyne_pointcloud/point_types.h>
+
+#include <ros/ros.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 typedef pcl::PointXYZI PointType;
 
 inline double rad2deg(double radians)
@@ -58,5 +64,52 @@ std::vector<float> transformToVec(const Eigen::Affine3f &t);
 
 void transformAssociateToMap(std::vector<float> beforeMapping, std::vector<float> afterMapping,
     std::vector<float> current, std::vector<float> &output);
+
+template <typename PointT>
+inline float pointsSqDistance(const PointT &pt1, const PointT &pt2) {
+  float dx = pt1.x - pt2.x;
+  float dy = pt1.y - pt2.y;
+  float dz = pt1.z - pt2.z;
+  return dx*dx + dy*dy + dz*dz;
+}
+
+template <typename PointT>
+inline float pointsDistance(const PointT &pt1, const PointT &pt2) {
+  return sqrt(pointsSqDistance(pt1, pt2));
+}
+
+template <typename PointT>
+inline float normalizedPointsSqDistance(const PointT &pt1, float normalization1,
+    const PointT &pt2, float normalization2) {
+  float dx = pt1.x*normalization1 - pt2.x*normalization2;
+  float dy = pt1.y*normalization1 - pt2.y*normalization2;
+  float dz = pt1.z*normalization1 - pt2.z*normalization2;
+  return dx*dx + dy*dy + dz*dz;
+}
+
+template <typename PointT>
+inline float normalizedPointsDistance(const PointT &pt1, float normalization1,
+    const PointT &pt2, float normalization2) {
+  return sqrt(normalizedPointsSqDistance(pt1, normalization1, pt2, normalization2));
+}
+
+template <typename PointT>
+inline float pointSqNorm(const PointT &pt) {
+  return pt.x*pt.x + pt.y*pt.y + pt.z*pt.z;
+}
+
+template <typename PointT>
+inline float pointNorm(const PointT &pt) {
+  return sqrt(pointSqNorm(pt));
+}
+
+template <typename PointT>
+void publishCloud(const pcl::PointCloud<PointT> &cloud, ros::Publisher &publisher, ros::Time stamp, std::string frame_id) {
+  sensor_msgs::PointCloud2 msg;
+  pcl::toROSMsg(cloud, msg);
+  msg.header.stamp = stamp;
+  msg.header.frame_id = frame_id;
+  publisher.publish(msg);
+}
 
 #endif
