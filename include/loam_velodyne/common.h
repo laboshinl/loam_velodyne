@@ -62,8 +62,28 @@ Eigen::Affine3f vecToTransform(const std::vector<float> &vec);
 
 std::vector<float> transformToVec(const Eigen::Affine3f &t);
 
+template <typename PointT>
+void swapPt(PointT &pt) {
+  PointT tmpPt = pt;
+  pt.x = tmpPt.z;
+  pt.y = tmpPt.x;
+  pt.z = tmpPt.y;
+}
+
+template <typename PointT>
+void swapPtBack(PointT &pt) {
+  PointT tmpPt = pt;
+  pt.x = tmpPt.y;
+  pt.y = tmpPt.z;
+  pt.z = tmpPt.x;
+}
+
 void transformAssociateToMap(std::vector<float> beforeMapping, std::vector<float> afterMapping,
     std::vector<float> current, std::vector<float> &output);
+
+void loadCloudFromMsg(const sensor_msgs::PointCloud2ConstPtr& msg,
+    pcl::PointCloud<PointType>::Ptr out_cloud,
+    double &out_time);
 
 template <typename PointT>
 inline float pointsSqDistance(const PointT &pt1, const PointT &pt2) {
