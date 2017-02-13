@@ -825,23 +825,14 @@ int main(int argc, char** argv)
               matX = matP * matX2;
             }
 
-            transformTobeMapped[0] += matX.at<float>(0, 0);
-            transformTobeMapped[1] += matX.at<float>(1, 0);
-            transformTobeMapped[2] += matX.at<float>(2, 0);
-            transformTobeMapped[3] += matX.at<float>(3, 0);
-            transformTobeMapped[4] += matX.at<float>(4, 0);
-            transformTobeMapped[5] += matX.at<float>(5, 0);
+            for(int i = 0; i < 6; i++){
+              transformTobeMapped[i] += matX.at<float>(i, 0);
+            }
 
-            float deltaR = sqrt(
-                                pow(rad2deg(matX.at<float>(0, 0)), 2) +
-                                pow(rad2deg(matX.at<float>(1, 0)), 2) +
-                                pow(rad2deg(matX.at<float>(2, 0)), 2));
-            float deltaT = sqrt(
-                                pow(matX.at<float>(3, 0) * 100, 2) +
-                                pow(matX.at<float>(4, 0) * 100, 2) +
-                                pow(matX.at<float>(5, 0) * 100, 2));
+            float deltaR = norm(matX.rowRange(0, 3));
+            float deltaT = norm(matX.rowRange(3, 6)) * 100;
 
-            if (deltaR < 0.05 && deltaT < 0.05) {
+            if (deltaR < DEG2RAD(0.1) && deltaT < 0.1) {
               break;
             }
           }

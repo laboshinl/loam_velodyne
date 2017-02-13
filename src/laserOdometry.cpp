@@ -217,6 +217,34 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
   newImuTrans = true;
 }
 
+/**
+ * Line is given by points AB.
+ * The result is the distance and the direction to closest point from the third point X.
+ */
+float getLinePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B,
+    const Eigen::Vector3f &X, Eigen::Vector3f &unit_direction) {
+  Eigen::Vector3f BXcrossAX = (X-B).cross(X-A);
+  float BXcrossAXnorm = BXcrossAX.norm();
+  float lengthAB = (A-B).norm();
+  unit_direction = -BXcrossAX.cross(B-A) / (BXcrossAXnorm * lengthAB);
+  return BXcrossAXnorm / lengthAB;
+}
+
+bool getCornerFeatureCoefficients(const PointType &A, const PointType &B,
+    const PointType &X, int iterration, PointType &coeff) {
+  Eigen::Vector3f direction;
+  float distance = getLinePointDistance(A.getVector3fMap(), B.getVector3fMap(), X.getVector3fMap(), direction);
+
+  float weight = 1.0;
+  if (iterration >= 5) {
+    weight = 1 - 1.8 * fabs(distance);
+  }
+
+  coeff.getVector3fMap() = direction * weight;
+  coeff.intensity = distance * weight;
+
+  return (weight > 0.1 && distance != 0);
+}
 
 int main(int argc, char** argv)
 {
@@ -262,8 +290,6 @@ int main(int argc, char** argv)
 
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;
-
-  PointType pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
 
   bool isDegenerate = false;
   cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
@@ -324,6 +350,7 @@ int main(int argc, char** argv)
           coeffSel->clear();
 
           for (int i = 0; i < cornerPointsSharpNum; i++) {
+            PointType pointSel;
             transformToStart(cornerPointsSharp->points[i], transformation, pointSel);
 
             if (iterCount % 5 == 0) {
@@ -371,62 +398,18 @@ int main(int argc, char** argv)
             }
 
             if (pointSearchCornerInd2[i] >= 0) {
-              tripod1 = laserCloudCornerLast->points[pointSearchCornerInd1[i]];
-              tripod2 = laserCloudCornerLast->points[pointSearchCornerInd2[i]];
-
-              float x0 = pointSel.x;
-              float y0 = pointSel.y;
-              float z0 = pointSel.z;
-              float x1 = tripod1.x;
-              float y1 = tripod1.y;
-              float z1 = tripod1.z;
-              float x2 = tripod2.x;
-              float y2 = tripod2.y;
-              float z2 = tripod2.z;
-
-              float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                         * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
-                         + ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
-                         * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
-                         + ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))
-                         * ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)));
-
-              float l12 = sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2) + (z1 - z2)*(z1 - z2));
-
-              float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
-                       + (z1 - z2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))) / a012 / l12;
-
-              float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
-                       - (z1 - z2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
-
-              float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1)) 
-                       + (y1 - y2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
-
-              float ld2 = a012 / l12;
-
-              pointProj = pointSel;
-              pointProj.x -= la * ld2;
-              pointProj.y -= lb * ld2;
-              pointProj.z -= lc * ld2;
-
-              float s = 1;
-              if (iterCount >= 5) {
-                s = 1 - 1.8 * fabs(ld2);
-              }
-
-              coeff.x = s * la;
-              coeff.y = s * lb;
-              coeff.z = s * lc;
-              coeff.intensity = s * ld2;
-
-              if (s > 0.1 && ld2 != 0) {
+              const PointType &A = laserCloudCornerLast->points[pointSearchCornerInd1[i]];
+              const PointType &B = laserCloudCornerLast->points[pointSearchCornerInd2[i]];
+              PointType coefficients;
+              if(getCornerFeatureCoefficients(A, B, pointSel, iterCount, coefficients)) {
                 laserCloudOri->push_back(cornerPointsSharp->points[i]);
-                coeffSel->push_back(coeff);
+                coeffSel->push_back(coefficients);
               }
             }
           }
 
           for (int i = 0; i < surfPointsFlatNum; i++) {
+            PointType pointSel;
             transformToStart(surfPointsFlat->points[i], transformation, pointSel);
 
             if (iterCount % 5 == 0) {
@@ -483,17 +466,17 @@ int main(int argc, char** argv)
             }
 
             if (pointSearchSurfInd2[i] >= 0 && pointSearchSurfInd3[i] >= 0) {
-              tripod1 = laserCloudSurfLast->points[pointSearchSurfInd1[i]];
-              tripod2 = laserCloudSurfLast->points[pointSearchSurfInd2[i]];
-              tripod3 = laserCloudSurfLast->points[pointSearchSurfInd3[i]];
+              const PointType &A = laserCloudSurfLast->points[pointSearchSurfInd1[i]];
+              const PointType &B = laserCloudSurfLast->points[pointSearchSurfInd2[i]];
+              const PointType &C = laserCloudSurfLast->points[pointSearchSurfInd3[i]];
 
-              float pa = (tripod2.y - tripod1.y) * (tripod3.z - tripod1.z) 
-                       - (tripod3.y - tripod1.y) * (tripod2.z - tripod1.z);
-              float pb = (tripod2.z - tripod1.z) * (tripod3.x - tripod1.x) 
-                       - (tripod3.z - tripod1.z) * (tripod2.x - tripod1.x);
-              float pc = (tripod2.x - tripod1.x) * (tripod3.y - tripod1.y) 
-                       - (tripod3.x - tripod1.x) * (tripod2.y - tripod1.y);
-              float pd = -(pa * tripod1.x + pb * tripod1.y + pc * tripod1.z);
+              float pa = (B.y - A.y) * (C.z - A.z)
+                       - (C.y - A.y) * (B.z - A.z);
+              float pb = (B.z - A.z) * (C.x - A.x)
+                       - (C.z - A.z) * (B.x - A.x);
+              float pc = (B.x - A.x) * (C.y - A.y)
+                       - (C.x - A.x) * (B.y - A.y);
+              float pd = -(pa * A.x + pb * A.y + pc * A.z);
 
               float ps = sqrt(pa * pa + pb * pb + pc * pc);
               pa /= ps;
@@ -503,25 +486,21 @@ int main(int argc, char** argv)
 
               float pd2 = pa * pointSel.x + pb * pointSel.y + pc * pointSel.z + pd;
 
-              pointProj = pointSel;
-              pointProj.x -= pa * pd2;
-              pointProj.y -= pb * pd2;
-              pointProj.z -= pc * pd2;
-
               float s = 1;
               if (iterCount >= 5) {
                 s = 1 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
                   + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
               }
 
-              coeff.x = s * pa;
-              coeff.y = s * pb;
-              coeff.z = s * pc;
-              coeff.intensity = s * pd2;
+              PointType coefficients;
+              coefficients.x = s * pa;
+              coefficients.y = s * pb;
+              coefficients.z = s * pc;
+              coefficients.intensity = s * pd2;
 
               if (s > 0.1 && pd2 != 0) {
                 laserCloudOri->push_back(surfPointsFlat->points[i]);
-                coeffSel->push_back(coeff);
+                coeffSel->push_back(coefficients);
               }
             }
           }
@@ -538,8 +517,8 @@ int main(int argc, char** argv)
           cv::Mat matAtB(6, 1, CV_32F, cv::Scalar::all(0));
           cv::Mat matX(6, 1, CV_32F, cv::Scalar::all(0));
           for (int i = 0; i < pointSelNum; i++) {
-            pointOri = laserCloudOri->points[i];
-            coeff = coeffSel->points[i];
+            PointType &pointOri = laserCloudOri->points[i];
+            PointType &coeff = coeffSel->points[i];
 
             float srx = sin(transformation[0]);
             float crx = cos(transformation[0]);
@@ -626,27 +605,17 @@ int main(int argc, char** argv)
             matX = matP * matX2;
           }
 
-          transformation[0] += matX.at<float>(0, 0);
-          transformation[1] += matX.at<float>(1, 0);
-          transformation[2] += matX.at<float>(2, 0);
-          transformation[3] += matX.at<float>(3, 0);
-          transformation[4] += matX.at<float>(4, 0);
-          transformation[5] += matX.at<float>(5, 0);
-
-          for(int i=0; i<6; i++){
-            if(isnan(transformation[i]))
-              transformation[i]=0;
+          for(int i = 0; i < 6; i++){
+            transformation[i] += matX.at<float>(i, 0);
+            if(isnan(transformation[i])) {
+              transformation[i] = 0;
+            }
           }
-          float deltaR = sqrt(
-                              pow(rad2deg(matX.at<float>(0, 0)), 2) +
-                              pow(rad2deg(matX.at<float>(1, 0)), 2) +
-                              pow(rad2deg(matX.at<float>(2, 0)), 2));
-          float deltaT = sqrt(
-                              pow(matX.at<float>(3, 0) * 100, 2) +
-                              pow(matX.at<float>(4, 0) * 100, 2) +
-                              pow(matX.at<float>(5, 0) * 100, 2));
 
-          if (deltaR < 0.1 && deltaT < 0.1) {
+          float deltaR = norm(matX.rowRange(0, 3));
+          float deltaT = norm(matX.rowRange(3, 6)) * 100;
+
+          if (deltaR < DEG2RAD(0.1) && deltaT < 0.1) {
             break;
           }
         }
