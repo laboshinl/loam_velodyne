@@ -33,6 +33,8 @@
 #include <cmath>
 
 #include <loam_velodyne/common.h>
+#include <loam_velodyne/build_transform.h>
+
 #include <nav_msgs/Odometry.h>
 #include <opencv/cv.h>
 #include <pcl/point_cloud.h>
@@ -90,7 +92,7 @@ float pointSearchSurfInd1[40000];
 float pointSearchSurfInd2[40000];
 float pointSearchSurfInd3[40000];
 
-float transform[6] = {0};
+float transformation[6] = {0};
 float transformSum[6] = {0};
 
 float imuRollStart = 0, imuPitchStart = 0, imuYawStart = 0;
@@ -98,71 +100,24 @@ float imuRollLast = 0, imuPitchLast = 0, imuYawLast = 0;
 float imuShiftFromStartX = 0, imuShiftFromStartY = 0, imuShiftFromStartZ = 0;
 float imuVeloFromStartX = 0, imuVeloFromStartY = 0, imuVeloFromStartZ = 0;
 
-void transformToStart(PointType pi, const float *curr_transform, PointType &po)
+void transformToStart(const PointType &pi, float *curr_transform, PointType &po)
 {
   float phase = 10 * (pi.intensity - int(pi.intensity));
-  Eigen::Affine3f Rt = pcl::getTransformation(0, 0, 0,
-      -curr_transform[2]*phase, -curr_transform[0]*phase, -curr_transform[1]*phase);
-
-  pi.x -= phase * curr_transform[3];
-  pi.y -= phase * curr_transform[4];
-  pi.z -= phase * curr_transform[5];
-  swapPt(pi);
-
-  po.getVector4fMap() = Rt.matrix() * pi.getVector4fMap();
+  po.getVector4fMap() = getTransformationTRzRxRy(curr_transform, -phase)*pi.getVector4fMap();
   po.intensity = pi.intensity;
-  swapPtBack(po);
 }
 
-void transformToEnd(PointType pi, PointType &po)
-{
-  transformToStart(pi, transform, po);
+void transformToEnd(pcl::PointCloud<PointType>::Ptr points, float *curr_transform) {
 
-  float rx = transform[0];
-  float ry = transform[1];
-  float rz = transform[2];
-  float tx = transform[3];
-  float ty = transform[4];
-  float tz = transform[5];
+  Eigen::Affine3f fromStartToEnd =
+      getTransformationRyRxRzT(0, 0, 0, imuPitchLast, imuYawLast, imuRollLast) *
+      getTransformationTRzRxRy(-imuShiftFromStartX, -imuShiftFromStartY, -imuShiftFromStartZ, imuPitchStart, imuYawStart, imuRollStart) *
+      getTransformationRyRxRzT(curr_transform);
 
-  float x4 = cos(ry) * po.x + sin(ry) * po.z;
-  float y4 = po.y;
-  float z4 = -sin(ry) * po.x + cos(ry) * po.z;
-
-  float x5 = x4;
-  float y5 = cos(rx) * y4 - sin(rx) * z4;
-  float z5 = sin(rx) * y4 + cos(rx) * z4;
-
-  float x6 = cos(rz) * x5 - sin(rz) * y5 + tx;
-  float y6 = sin(rz) * x5 + cos(rz) * y5 + ty;
-  float z6 = z5 + tz;
-
-  float x7 = cos(imuRollStart) * (x6 - imuShiftFromStartX) 
-           - sin(imuRollStart) * (y6 - imuShiftFromStartY);
-  float y7 = sin(imuRollStart) * (x6 - imuShiftFromStartX) 
-           + cos(imuRollStart) * (y6 - imuShiftFromStartY);
-  float z7 = z6 - imuShiftFromStartZ;
-
-  float x8 = x7;
-  float y8 = cos(imuPitchStart) * y7 - sin(imuPitchStart) * z7;
-  float z8 = sin(imuPitchStart) * y7 + cos(imuPitchStart) * z7;
-
-  float x9 = cos(imuYawStart) * x8 + sin(imuYawStart) * z8;
-  float y9 = y8;
-  float z9 = -sin(imuYawStart) * x8 + cos(imuYawStart) * z8;
-
-  float x10 = cos(imuYawLast) * x9 - sin(imuYawLast) * z9;
-  float y10 = y9;
-  float z10 = sin(imuYawLast) * x9 + cos(imuYawLast) * z9;
-
-  float x11 = x10;
-  float y11 = cos(imuPitchLast) * y10 + sin(imuPitchLast) * z10;
-  float z11 = -sin(imuPitchLast) * y10 + cos(imuPitchLast) * z10;
-
-  po.x = cos(imuRollLast) * x11 + sin(imuRollLast) * y11;
-  po.y = -sin(imuRollLast) * x11 + cos(imuRollLast) * y11;
-  po.z = z11;
-  po.intensity = int(pi.intensity);
+  for(pcl::PointCloud<PointType>::iterator p = points->begin(); p < points->end(); p++) {
+    transformToStart(*p, curr_transform, *p);
+    p->getVector4fMap() = fromStartToEnd*p->getVector4fMap();
+  }
 }
 
 void pluginIMURotation(float bcx, float bcy, float bcz,
@@ -355,9 +310,9 @@ int main(int argc, char** argv)
         continue;
       }
 
-      transform[3] -= imuVeloFromStartX * scanPeriod;
-      transform[4] -= imuVeloFromStartY * scanPeriod;
-      transform[5] -= imuVeloFromStartZ * scanPeriod;
+      transformation[3] -= imuVeloFromStartX * scanPeriod;
+      transformation[4] -= imuVeloFromStartY * scanPeriod;
+      transformation[5] -= imuVeloFromStartZ * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
         std::vector<int> indices;
@@ -369,7 +324,7 @@ int main(int argc, char** argv)
           coeffSel->clear();
 
           for (int i = 0; i < cornerPointsSharpNum; i++) {
-            transformToStart(cornerPointsSharp->points[i], transform, pointSel);
+            transformToStart(cornerPointsSharp->points[i], transformation, pointSel);
 
             if (iterCount % 5 == 0) {
               std::vector<int> indices;
@@ -472,7 +427,7 @@ int main(int argc, char** argv)
           }
 
           for (int i = 0; i < surfPointsFlatNum; i++) {
-            transformToStart(surfPointsFlat->points[i], transform, pointSel);
+            transformToStart(surfPointsFlat->points[i], transformation, pointSel);
 
             if (iterCount % 5 == 0) {
               kdtreeSurfLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
@@ -586,15 +541,15 @@ int main(int argc, char** argv)
             pointOri = laserCloudOri->points[i];
             coeff = coeffSel->points[i];
 
-            float srx = sin(transform[0]);
-            float crx = cos(transform[0]);
-            float sry = sin(transform[1]);
-            float cry = cos(transform[1]);
-            float srz = sin(transform[2]);
-            float crz = cos(transform[2]);
-            float tx = transform[3];
-            float ty = transform[4];
-            float tz = transform[5];
+            float srx = sin(transformation[0]);
+            float crx = cos(transformation[0]);
+            float sry = sin(transformation[1]);
+            float cry = cos(transformation[1]);
+            float srz = sin(transformation[2]);
+            float crz = cos(transformation[2]);
+            float tx = transformation[3];
+            float ty = transformation[4];
+            float tz = transformation[5];
 
             float arx = (-crx*sry*srz*pointOri.x + crx*crz*sry*pointOri.y + srx*sry*pointOri.z
                       + tx*crx*sry*srz - ty*crx*crz*sry - tz*srx*sry) * coeff.x
@@ -671,16 +626,16 @@ int main(int argc, char** argv)
             matX = matP * matX2;
           }
 
-          transform[0] += matX.at<float>(0, 0);
-          transform[1] += matX.at<float>(1, 0);
-          transform[2] += matX.at<float>(2, 0);
-          transform[3] += matX.at<float>(3, 0);
-          transform[4] += matX.at<float>(4, 0);
-          transform[5] += matX.at<float>(5, 0);
+          transformation[0] += matX.at<float>(0, 0);
+          transformation[1] += matX.at<float>(1, 0);
+          transformation[2] += matX.at<float>(2, 0);
+          transformation[3] += matX.at<float>(3, 0);
+          transformation[4] += matX.at<float>(4, 0);
+          transformation[5] += matX.at<float>(5, 0);
 
           for(int i=0; i<6; i++){
-            if(isnan(transform[i]))
-              transform[i]=0;
+            if(isnan(transformation[i]))
+              transformation[i]=0;
           }
           float deltaR = sqrt(
                               pow(rad2deg(matX.at<float>(0, 0)), 2) +
@@ -697,7 +652,7 @@ int main(int argc, char** argv)
         }
       }
 
-      accumulateTransformation(transform, transformSum);
+      accumulateTransformation(transformation, transformSum);
 
       geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(transformSum[2], -transformSum[0], -transformSum[1]);
 
@@ -716,22 +671,12 @@ int main(int argc, char** argv)
       laserOdometryTrans.setOrigin(tf::Vector3(transformSum[3], transformSum[4], transformSum[5]));
       tfBroadcaster.sendTransform(laserOdometryTrans);
 
-      int cornerPointsLessSharpNum = cornerPointsLessSharp->points.size();
-      for (int i = 0; i < cornerPointsLessSharpNum; i++) {
-        transformToEnd(cornerPointsLessSharp->points[i], cornerPointsLessSharp->points[i]);
-      }
-
-      int surfPointsLessFlatNum = surfPointsLessFlat->points.size();
-      for (int i = 0; i < surfPointsLessFlatNum; i++) {
-        transformToEnd(surfPointsLessFlat->points[i], surfPointsLessFlat->points[i]);
-      }
+      transformToEnd(cornerPointsLessSharp, transformation);
+      transformToEnd(surfPointsLessFlat, transformation);
 
       frameCount++;
       if (frameCount >= skipFrameNum + 1) {
-        int laserCloudFullResNum = laserCloudFullRes->points.size();
-        for (int i = 0; i < laserCloudFullResNum; i++) {
-          transformToEnd(laserCloudFullRes->points[i], laserCloudFullRes->points[i]);
-        }
+        transformToEnd(laserCloudFullRes, transformation);
       }
 
       pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
