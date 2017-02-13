@@ -33,6 +33,8 @@
 #include <math.h>
 
 #include <loam_velodyne/common.h>
+#include <loam_velodyne/build_transform.h>
+
 #include <nav_msgs/Odometry.h>
 #include <opencv/cv.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -143,25 +145,14 @@ void transformUpdate()
   }
 }
 
-// pi * transformTobeMapped => po
-void pointAssociateToMap(PointType const * const pi, PointType * const po)
+Eigen::Affine3f getAssociationToMap() {
+  return getTransformationRzRxRyT(transformTobeMapped);
+}
+
+void pointAssociateToMap(const PointType &pi, PointType &po)
 {
-  float x1 = cos(transformTobeMapped[2]) * pi->x
-           - sin(transformTobeMapped[2]) * pi->y;
-  float y1 = sin(transformTobeMapped[2]) * pi->x
-           + cos(transformTobeMapped[2]) * pi->y;
-  float z1 = pi->z;
-
-  float x2 = x1;
-  float y2 = cos(transformTobeMapped[0]) * y1 - sin(transformTobeMapped[0]) * z1;
-  float z2 = sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-
-  po->x = cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2
-        + transformTobeMapped[3];
-  po->y = y2 + transformTobeMapped[4];
-  po->z = -sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2
-        + transformTobeMapped[5];
-  po->intensity = pi->intensity;
+  po.getVector4fMap() = getAssociationToMap() * pi.getVector4fMap();
+  po.intensity = pi.intensity;
 }
 
 void pointAssociateTobeMapped(PointType const * const pi, PointType * const po)
@@ -334,17 +325,8 @@ int main(int argc, char** argv)
       if (frameCount >= stackFrameNum) {
         transformAssociateToMap(transformBefMapped, transformAftMapped, transformSum, transformTobeMapped);
 
-        int laserCloudCornerLastNum = laserCloudCornerLast->points.size();
-        for (int i = 0; i < laserCloudCornerLastNum; i++) {
-          pointAssociateToMap(&laserCloudCornerLast->points[i], &pointSel);
-          laserCloudCornerStack2->push_back(pointSel);
-        }
-
-        int laserCloudSurfLastNum = laserCloudSurfLast->points.size();
-        for (int i = 0; i < laserCloudSurfLastNum; i++) {
-          pointAssociateToMap(&laserCloudSurfLast->points[i], &pointSel);
-          laserCloudSurfStack2->push_back(pointSel);
-        }
+        pcl::transformPointCloud(*laserCloudCornerLast, *laserCloudCornerStack2, getAssociationToMap());
+        pcl::transformPointCloud(*laserCloudSurfLast, *laserCloudSurfStack2, getAssociationToMap());
       }
 
       if (frameCount >= stackFrameNum) {
@@ -354,7 +336,7 @@ int main(int argc, char** argv)
         pointOnYAxis.x = 0.0;
         pointOnYAxis.y = 10.0;
         pointOnYAxis.z = 0.0;
-        pointAssociateToMap(&pointOnYAxis, &pointOnYAxis);
+        pointAssociateToMap(pointOnYAxis, pointOnYAxis);
 
         int centerCubeI = int((transformTobeMapped[3] + 25.0) / 50.0) + laserCloudCenWidth;
         int centerCubeJ = int((transformTobeMapped[4] + 25.0) / 50.0) + laserCloudCenHeight;
@@ -626,7 +608,7 @@ int main(int argc, char** argv)
 
             for (int i = 0; i < laserCloudCornerStackNum; i++) {
               pointOri = laserCloudCornerStack->points[i];
-              pointAssociateToMap(&pointOri, &pointSel);
+              pointAssociateToMap(pointOri, pointSel);
               kdtreeCornerFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
               
               if (pointSearchSqDis[4] < 1.0) {
@@ -733,7 +715,7 @@ int main(int argc, char** argv)
 
             for (int i = 0; i < laserCloudSurfStackNum; i++) {
               pointOri = laserCloudSurfStack->points[i];
-              pointAssociateToMap(&pointOri, &pointSel); 
+              pointAssociateToMap(pointOri, pointSel);
               kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
 
               if (pointSearchSqDis[4] < 1.0) {
@@ -890,8 +872,9 @@ int main(int argc, char** argv)
           transformUpdate();
         }
 
+        pcl::transformPointCloud(*laserCloudCornerStack, *laserCloudCornerStack, getAssociationToMap());
         for (int i = 0; i < laserCloudCornerStackNum; i++) {
-          pointAssociateToMap(&laserCloudCornerStack->points[i], &pointSel);
+          PointType &pointSel = laserCloudCornerStack->at(i);
 
           int cubeI = int((pointSel.x + 25.0) / 50.0) + laserCloudCenWidth;
           int cubeJ = int((pointSel.y + 25.0) / 50.0) + laserCloudCenHeight;
@@ -909,8 +892,9 @@ int main(int argc, char** argv)
           }
         }
 
+        pcl::transformPointCloud(*laserCloudSurfStack, *laserCloudSurfStack, getAssociationToMap());
         for (int i = 0; i < laserCloudSurfStackNum; i++) {
-          pointAssociateToMap(&laserCloudSurfStack->points[i], &pointSel);
+          PointType &pointSel = laserCloudSurfStack->at(i);
 
           int cubeI = int((pointSel.x + 25.0) / 50.0) + laserCloudCenWidth;
           int cubeJ = int((pointSel.y + 25.0) / 50.0) + laserCloudCenHeight;
@@ -970,10 +954,7 @@ int main(int argc, char** argv)
           pubLaserCloudSurround.publish(laserCloudSurround3);
         }
 
-        int laserCloudFullResNum = laserCloudFullRes->points.size();
-        for (int i = 0; i < laserCloudFullResNum; i++) {
-          pointAssociateToMap(&laserCloudFullRes->points[i], &laserCloudFullRes->points[i]);
-        }
+        pcl::transformPointCloud(*laserCloudFullRes, *laserCloudFullRes, getAssociationToMap());
 
         sensor_msgs::PointCloud2 laserCloudFullRes3;
         pcl::toROSMsg(*laserCloudFullRes, laserCloudFullRes3);

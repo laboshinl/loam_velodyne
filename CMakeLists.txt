@@ -38,7 +38,7 @@ target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${Op
 add_executable(laserOdometry src/laserOdometry.cpp src/common.cpp src/build_transform.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(laserMapping src/laserMapping.cpp src/common.cpp)
+add_executable(laserMapping src/laserMapping.cpp src/common.cpp src/build_transform.cpp)
 target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
 add_executable(transformMaintenance src/transformMaintenance.cpp src/common.cpp)

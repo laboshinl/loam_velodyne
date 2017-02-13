@@ -59,3 +59,28 @@ Eigen::Affine3f getTransformationRyRxRzT(float tx, float ty, float tz, float rx,
 Eigen::Affine3f getTransformationRyRxRzT(const float *dof) {
   return getTransformationRyRxRzT(dof[3], dof[4], dof[5], dof[0], dof[1], dof[2]);
 }
+
+Eigen::Affine3f getTransformationRzRxRyT(float tx, float ty, float tz, float rx, float ry, float rz) {
+  float srx = sin(rx);
+  float crx = cos(rx);
+  float sry = sin(ry);
+  float cry = cos(ry);
+  float srz = sin(rz);
+  float crz = cos(rz);
+
+  float crycrz = cry*crz;
+  float crysrz = cry*srz;
+  float srxsry = srx*sry;
+
+  Eigen::Affine3f t;
+  t (0, 0) = crycrz + srxsry*srz;  t (0, 1) = crz*srxsry - crysrz;  t (0, 2) = crx*sry;  t (0, 3) = tx;
+  t (1, 0) = crx*srz;  t (1, 1) = crx*crz;   t (1, 2) = -srx;  t (1, 3) = ty;
+  t (2, 0) = crysrz*srx - crz*sry;             t (2, 1) = sry*srz + crycrz*srx;       t (2, 2) = crx*cry;               t (2, 3) = tz;
+  t (3, 0) = 0;                    t (3, 1) = 0;         t (3, 2) = 0;                     t (3, 3) = 1;
+
+  return t;
+}
+
+Eigen::Affine3f getTransformationRzRxRyT(const std::vector<float> &dof) {
+  return getTransformationRzRxRyT(dof[3], dof[4], dof[5], dof[0], dof[1], dof[2]);
+}
