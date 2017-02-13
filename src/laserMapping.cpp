@@ -155,24 +155,8 @@ void pointAssociateToMap(const PointType &pi, PointType &po)
   po.intensity = pi.intensity;
 }
 
-void pointAssociateTobeMapped(PointType const * const pi, PointType * const po)
-{
-  float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
-           - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
-  float y1 = pi->y - transformTobeMapped[4];
-  float z1 = sin(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
-           + cos(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
-
-  float x2 = x1;
-  float y2 = cos(transformTobeMapped[0]) * y1 + sin(transformTobeMapped[0]) * z1;
-  float z2 = -sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-
-  po->x = cos(transformTobeMapped[2]) * x2
-        + sin(transformTobeMapped[2]) * y2;
-  po->y = -sin(transformTobeMapped[2]) * x2
-        + cos(transformTobeMapped[2]) * y2;
-  po->z = z2;
-  po->intensity = pi->intensity;
+Eigen::Affine3f getAssociationToBeMapped() {
+  return getTransformationTRyRxRz(transformTobeMapped, -1.0);
 }
 
 void laserCloudCornerLastHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudCornerLast2)
@@ -575,15 +559,8 @@ int main(int argc, char** argv)
         int laserCloudCornerFromMapNum = laserCloudCornerFromMap->points.size();
         int laserCloudSurfFromMapNum = laserCloudSurfFromMap->points.size();
 
-        int laserCloudCornerStackNum2 = laserCloudCornerStack2->points.size();
-        for (int i = 0; i < laserCloudCornerStackNum2; i++) {
-          pointAssociateTobeMapped(&laserCloudCornerStack2->points[i], &laserCloudCornerStack2->points[i]);
-        }
-
-        int laserCloudSurfStackNum2 = laserCloudSurfStack2->points.size();
-        for (int i = 0; i < laserCloudSurfStackNum2; i++) {
-          pointAssociateTobeMapped(&laserCloudSurfStack2->points[i], &laserCloudSurfStack2->points[i]);
-        }
+        pcl::transformPointCloud(*laserCloudCornerStack2, *laserCloudCornerStack2, getAssociationToBeMapped());
+        pcl::transformPointCloud(*laserCloudSurfStack2, *laserCloudSurfStack2, getAssociationToBeMapped());
 
         laserCloudCornerStack->clear();
         downSizeFilterCorner.setInputCloud(laserCloudCornerStack2);
