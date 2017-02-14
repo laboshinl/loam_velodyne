@@ -246,6 +246,32 @@ bool getCornerFeatureCoefficients(const PointType &A, const PointType &B,
   return (weight > 0.1 && distance != 0);
 }
 
+float getSurfacePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B, const Eigen::Vector3f &C,
+    const Eigen::Vector3f &X, Eigen::Vector3f &surfNormal) {
+  surfNormal = (B-A).cross(C-A);
+  surfNormal.normalize();
+
+  float normalDotA = -surfNormal.dot(A);
+  float distance = surfNormal.dot(X) + normalDotA;
+  return distance;
+}
+
+bool getSurfaceFeatureCoefficients(const PointType &A, const PointType &B, const PointType &C,
+    const PointType &X, int iterration, PointType &coefficients) {
+  Eigen::Vector3f surfNormal;
+  float distance = getSurfacePointDistance(A.getVector3fMap(), B.getVector3fMap(), C.getVector3fMap(),
+      X.getVector3fMap(), surfNormal);
+
+  float weight = 1;
+  if (iterration >= 5) {
+    weight = 1 - 1.8 * fabs(distance) / sqrt(X.getVector3fMap().norm());
+  }
+  coefficients.getVector3fMap() = weight * surfNormal;
+  coefficients.intensity = weight * distance;
+
+  return (weight > 0.1 && distance != 0);
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "laserOdometry");
@@ -470,35 +496,8 @@ int main(int argc, char** argv)
               const PointType &B = laserCloudSurfLast->points[pointSearchSurfInd2[i]];
               const PointType &C = laserCloudSurfLast->points[pointSearchSurfInd3[i]];
 
-              float pa = (B.y - A.y) * (C.z - A.z)
-                       - (C.y - A.y) * (B.z - A.z);
-              float pb = (B.z - A.z) * (C.x - A.x)
-                       - (C.z - A.z) * (B.x - A.x);
-              float pc = (B.x - A.x) * (C.y - A.y)
-                       - (C.x - A.x) * (B.y - A.y);
-              float pd = -(pa * A.x + pb * A.y + pc * A.z);
-
-              float ps = sqrt(pa * pa + pb * pb + pc * pc);
-              pa /= ps;
-              pb /= ps;
-              pc /= ps;
-              pd /= ps;
-
-              float pd2 = pa * pointSel.x + pb * pointSel.y + pc * pointSel.z + pd;
-
-              float s = 1;
-              if (iterCount >= 5) {
-                s = 1 - 1.8 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
-                  + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
-              }
-
               PointType coefficients;
-              coefficients.x = s * pa;
-              coefficients.y = s * pb;
-              coefficients.z = s * pc;
-              coefficients.intensity = s * pd2;
-
-              if (s > 0.1 && pd2 != 0) {
+              if(getSurfaceFeatureCoefficients(A, B, C, pointSel, iterCount, coefficients)) {
                 laserCloudOri->push_back(surfPointsFlat->points[i]);
                 coeffSel->push_back(coefficients);
               }
