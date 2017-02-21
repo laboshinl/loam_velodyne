@@ -11,6 +11,8 @@ Eigen::Affine3f getTransformationRyRxRzT(float tx, float ty, float tz, float rx,
 
 Eigen::Affine3f getTransformationRyRxRzT(const float *dof);
 
+Eigen::Affine3f getTransformationRyRxRzT(const std::vector<float> &dof);
+
 Eigen::Affine3f getTransformationRzRxRyT(float tx, float ty, float tz, float rx, float ry, float rz);
 
 Eigen::Affine3f getTransformationRzRxRyT(const std::vector<float> &dof);

@@ -51,7 +51,6 @@
 #include <tf/transform_broadcaster.h>
 
 #include <but_velodyne/VelodynePointCloud.h>
-#include <but_velodyne/Visualizer3D.h>
 #include <velodyne_pointcloud/point_types.h>
 
 #include <loam_velodyne/LoamImu.h>

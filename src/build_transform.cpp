@@ -60,6 +60,10 @@ Eigen::Affine3f getTransformationRyRxRzT(const float *dof) {
   return getTransformationRyRxRzT(dof[3], dof[4], dof[5], dof[0], dof[1], dof[2]);
 }
 
+Eigen::Affine3f getTransformationRyRxRzT(const std::vector<float> &dof) {
+  return getTransformationRyRxRzT(dof[3], dof[4], dof[5], dof[0], dof[1], dof[2]);
+}
+
 Eigen::Affine3f getTransformationRzRxRyT(float tx, float ty, float tz, float rx, float ry, float rz) {
   float srx = sin(rx);
   float crx = cos(rx);
