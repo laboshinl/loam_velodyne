@@ -46,6 +46,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <ecl/time/stopwatch.hpp>
 
 #include <but_velodyne/KittiUtils.h>
 
@@ -66,8 +67,9 @@ vector<float> transformAftMapped(6, 0);
 
 void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
 {
-	static int counter = 1;
-	ROS_DEBUG("new odometry #%d", counter++);
+  static int counter = 1;
+  ROS_DEBUG_STREAM("[transformMaintenance] laserOdometryHandler started with frame #" << counter);
+  ecl::StopWatch stopWatch;
 
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
@@ -105,10 +107,16 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
   laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
   laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped[3], transformMapped[4], transformMapped[5]));
   tfBroadcaster2Pointer->sendTransform(laserOdometryTrans2);
+
+  ROS_DEBUG_STREAM("[transformMaintenance] laserOdometryHandler took " << stopWatch.elapsed());
 }
 
 void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)
 {
+  static int counter = 1;
+  ROS_DEBUG_STREAM("[transformMaintenance] odomAftMappedHandler started with frame #" << counter);
+  ecl::StopWatch stopWatch;
+
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = odomAftMapped->pose.pose.orientation;
   tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
@@ -128,6 +136,8 @@ void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)
   transformBefMapped[3] = odomAftMapped->twist.twist.linear.x;
   transformBefMapped[4] = odomAftMapped->twist.twist.linear.y;
   transformBefMapped[5] = odomAftMapped->twist.twist.linear.z;
+
+  ROS_DEBUG_STREAM("[transformMaintenance] odomAftMappedHandler took " << stopWatch.elapsed());
 }
 
 int main(int argc, char** argv)

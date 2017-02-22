@@ -49,6 +49,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <pcl/filters/impl/filter.hpp>
+#include <ecl/time/stopwatch.hpp>
 
 #include <but_velodyne/VelodynePointCloud.h>
 #include <velodyne_pointcloud/point_types.h>
@@ -333,6 +335,9 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
 
   double timeScanCur = stamp.toSec();
 
+  ROS_DEBUG_STREAM("[scanRegistration] started processLasserCloud with frame from " << timeScanCur);
+  ecl::StopWatch stopWatch;
+
   std::vector<int> indices;
   pcl::PointCloud<velodyne_pointcloud::PointXYZIR> laserCloudIn;
   pcl::removeNaNFromPointCloud(originalLaserCloudIn, laserCloudIn, indices);
@@ -360,6 +365,8 @@ void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &
   imuTransMsg.header.stamp = stamp;
   imuTransMsg.header.frame_id = "/camera";
   pubImuTrans.publish(imuTransMsg);
+
+  ROS_DEBUG_STREAM("[scanRegistration] processLasserCloud took " << stopWatch.elapsed());
 }
 
 void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)

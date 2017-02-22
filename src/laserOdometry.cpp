@@ -47,6 +47,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <ecl/time/stopwatch.hpp>
 
 const float scanPeriod = 0.1;
 
@@ -333,6 +334,10 @@ int main(int argc, char** argv)
         fabs(timeSurfPointsFlat - timeSurfPointsLessFlat) < 0.005 &&
         fabs(timeLaserCloudFullRes - timeSurfPointsLessFlat) < 0.005 &&
         fabs(timeImuTrans - timeSurfPointsLessFlat) < 0.005) {
+
+      ROS_DEBUG_STREAM("[laserOdometry] started with frame from " << timeLaserCloudFullRes);
+      ecl::StopWatch stopWatch;
+
       newCornerPointsSharp = false;
       newCornerPointsLessSharp = false;
       newSurfPointsFlat = false;
@@ -668,6 +673,8 @@ int main(int argc, char** argv)
         publishCloud(*laserCloudSurfLast, pubLaserCloudSurfLast, ros::Time().fromSec(timeSurfPointsLessFlat), "/camera");
         publishCloud(*laserCloudFullRes, pubLaserCloudFullRes, ros::Time().fromSec(timeSurfPointsLessFlat), "/camera");
       }
+
+      ROS_DEBUG_STREAM("[laserOdometry] took " << stopWatch.elapsed());
     }
 
     status = ros::ok();

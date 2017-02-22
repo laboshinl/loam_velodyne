@@ -47,6 +47,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <ecl/time/stopwatch.hpp>
 
 using namespace std;
 
@@ -345,6 +346,10 @@ int main(int argc, char** argv)
         fabs(timeLaserCloudCornerLast - timeLaserOdometry) < 0.005 &&
         fabs(timeLaserCloudSurfLast - timeLaserOdometry) < 0.005 &&
         fabs(timeLaserCloudFullRes - timeLaserOdometry) < 0.005) {
+
+      ROS_DEBUG_STREAM("[laserMapping] started with frame from " << timeLaserCloudFullRes);
+      ecl::StopWatch stopWatch;
+
       newLaserCloudCornerLast = false;
       newLaserCloudSurfLast = false;
       newLaserCloudFullRes = false;
@@ -844,6 +849,8 @@ int main(int argc, char** argv)
         tfBroadcaster.sendTransform(aftMappedTrans);
 
       }
+
+      ROS_DEBUG_STREAM("[laserMapping] took " << stopWatch.elapsed());
     }
 
     status = ros::ok();

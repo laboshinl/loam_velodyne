@@ -9,6 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   tf
+  ecl_time
   )
 
 #find_package(Eigen3 REQUIRED)
