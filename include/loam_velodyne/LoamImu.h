@@ -5,6 +5,8 @@
 #include <cmath>
 #include <pcl/point_types.h>
 
+#include <loam_velodyne/common.h>
+
 class LoamImuInput {
 
 public:
@@ -41,6 +43,25 @@ public:
     imuShiftX(imuQueLength, 0),
     imuShiftY(imuQueLength, 0),
     imuShiftZ(imuQueLength, 0) {
+  }
+
+  void handleInput(float roll, float pitch, float yaw,
+      float accX, float accY, float accZ, float time) {
+    accX += - sin(roll) * cos(pitch) * 9.81;
+    accY += - cos(roll) * cos(pitch) * 9.81;
+    accZ +=   sin(pitch) * 9.81;
+
+    imuPointerLast = (imuPointerLast + 1) % imuQueLength;
+
+    imuTime[imuPointerLast] = time;
+    imuRoll[imuPointerLast] = roll;
+    imuPitch[imuPointerLast] = pitch;
+    imuYaw[imuPointerLast] = yaw;
+    imuAccX[imuPointerLast] = accX;
+    imuAccY[imuPointerLast] = accY;
+    imuAccZ[imuPointerLast] = accZ;
+
+    accumulateIMUShift();
   }
 
   bool isAvailable() {
@@ -150,30 +171,6 @@ public:
     }
   }
 
-  void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
-  {
-    double roll, pitch, yaw;
-    tf::Quaternion orientation;
-    tf::quaternionMsgToTF(imuIn->orientation, orientation);
-    tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-
-    float accX = imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81;
-    float accY = imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81;
-    float accZ = imuIn->linear_acceleration.x + sin(pitch) * 9.81;
-
-    imuPointerLast = (imuPointerLast + 1) % imuQueLength;
-
-    imuTime[imuPointerLast] = imuIn->header.stamp.toSec();
-    imuRoll[imuPointerLast] = roll;
-    imuPitch[imuPointerLast] = pitch;
-    imuYaw[imuPointerLast] = yaw;
-    imuAccX[imuPointerLast] = accX;
-    imuAccY[imuPointerLast] = accY;
-    imuAccZ[imuPointerLast] = accZ;
-
-    accumulateIMUShift();
-  }
-
   pcl::PointCloud<pcl::PointXYZ> to4Points() {
     pcl::PointCloud<pcl::PointXYZ> imuTrans(4, 1);
 
@@ -263,11 +260,9 @@ protected:
   }
 
 private:
-  static const int imuQueLength = 2000;    // orig 200
-
   const int scanPeriod;
 
-  int imuPointerFront, imuPointerLast;
+  int imuPointerFront;
 
   float imuRollStart, imuPitchStart, imuYawStart;
   float imuRollCur, imuPitchCur, imuYawCur;
@@ -281,11 +276,17 @@ private:
   float imuShiftFromStartXCur, imuShiftFromStartYCur, imuShiftFromStartZCur;
   float imuVeloFromStartXCur, imuVeloFromStartYCur, imuVeloFromStartZCur;
 
+  std::vector<float> imuVeloX, imuVeloY, imuVeloZ;
+  std::vector<float> imuShiftX, imuShiftY, imuShiftZ;
+
+protected:
+  static const int imuQueLength = 2000;    // orig 200
+
+  int imuPointerLast;
+
   std::vector<double> imuTime;
   std::vector<float> imuRoll, imuPitch, imuYaw;
   std::vector<float> imuAccX, imuAccY, imuAccZ;
-  std::vector<float> imuVeloX, imuVeloY, imuVeloZ;
-  std::vector<float> imuShiftX, imuShiftY, imuShiftZ;
 };
 
 #endif

@@ -33,7 +33,7 @@ catkin_package(
   INCLUDE_DIRS include
 )
 
-add_executable(scanRegistration src/scanRegistration.cpp)
+add_executable(scanRegistration src/scanRegistration.cpp src/scanRegistrationLib.cpp)
 target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
 add_executable(laserOdometry src/laserOdometry.cpp src/common.cpp src/build_transform.cpp)
