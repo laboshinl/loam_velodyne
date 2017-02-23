@@ -31,14 +31,3 @@ void transformAssociateToMap(const vector<float> &beforeMapping,
                  vecToTransform(current),
                  output);
 }
-
-void loadCloudFromMsg(const sensor_msgs::PointCloud2ConstPtr& msg,
-    pcl::PointCloud<PointType>::Ptr out_cloud,
-    double &out_time) {
-  out_time = msg->header.stamp.toSec();
-
-  out_cloud->clear();
-  pcl::fromROSMsg(*msg, *out_cloud);
-  std::vector<int> indices;
-  pcl::removeNaNFromPointCloud(*out_cloud,*out_cloud, indices);
-}

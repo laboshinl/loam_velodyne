@@ -33,6 +33,7 @@
 #include <math.h>
 
 #include <loam_velodyne/common.h>
+#include <loam_velodyne/common_ros.h>
 #include <loam_velodyne/build_transform.h>
 
 #include <nav_msgs/Odometry.h>

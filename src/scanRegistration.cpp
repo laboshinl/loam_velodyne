@@ -34,6 +34,7 @@
 #include <vector>
 
 #include <loam_velodyne/common.h>
+#include <loam_velodyne/common_ros.h>
 #include <loam_velodyne/LoamImu.h>
 #include <loam_velodyne/scanRegistrationLib.h>
 

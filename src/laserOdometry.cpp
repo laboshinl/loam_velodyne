@@ -33,6 +33,7 @@
 #include <cmath>
 
 #include <loam_velodyne/common.h>
+#include <loam_velodyne/common_ros.h>
 #include <loam_velodyne/laserOdometryLib.h>
 
 #include <nav_msgs/Odometry.h>

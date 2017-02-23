@@ -42,10 +42,6 @@
 
 #include <velodyne_pointcloud/point_types.h>
 
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
-
 typedef pcl::PointXYZI PointType;
 
 inline double rad2deg(double radians)
@@ -62,10 +58,6 @@ void transformAssociateToMap(const std::vector<float> &beforeMapping,
                              const std::vector<float> &afterMapping,
                              const std::vector<float> &current,
                              std::vector<float> &output);
-
-void loadCloudFromMsg(const sensor_msgs::PointCloud2ConstPtr& msg,
-    pcl::PointCloud<PointType>::Ptr out_cloud,
-    double &out_time);
 
 template <typename PointT>
 inline float pointsSqDistance(const PointT &pt1, const PointT &pt2) {
@@ -103,15 +95,6 @@ inline float pointSqNorm(const PointT &pt) {
 template <typename PointT>
 inline float pointNorm(const PointT &pt) {
   return sqrt(pointSqNorm(pt));
-}
-
-template <typename PointT>
-void publishCloud(const pcl::PointCloud<PointT> &cloud, ros::Publisher &publisher, ros::Time stamp, std::string frame_id) {
-  sensor_msgs::PointCloud2 msg;
-  pcl::toROSMsg(cloud, msg);
-  msg.header.stamp = stamp;
-  msg.header.frame_id = frame_id;
-  publisher.publish(msg);
 }
 
 #endif
