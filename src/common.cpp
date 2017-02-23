@@ -22,7 +22,7 @@ vector<float> transformToVec(const Eigen::Affine3f &t, vector<float> &vec) {
   return vec;
 }
 
-void transformAssociateToMap(const vector<float> &beforeMapping,
+void improveOdometryByMapping(const vector<float> &beforeMapping,
                              const vector<float> &afterMapping,
                              const vector<float> &current,
                              vector<float> &output) {

@@ -54,7 +54,7 @@ inline double deg2rad(double degrees)
   return degrees * M_PI / 180.0;
 }
 
-void transformAssociateToMap(const std::vector<float> &beforeMapping,
+void improveOdometryByMapping(const std::vector<float> &beforeMapping,
                              const std::vector<float> &afterMapping,
                              const std::vector<float> &current,
                              std::vector<float> &output);

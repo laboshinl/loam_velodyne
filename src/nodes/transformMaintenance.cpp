@@ -83,7 +83,7 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
   transformSum[4] = laserOdometry->pose.pose.position.y;
   transformSum[5] = laserOdometry->pose.pose.position.z;
 
-  transformAssociateToMap(transformBefMapped, transformAftMapped, transformSum, transformMapped);
+  improveOdometryByMapping(transformBefMapped, transformAftMapped, transformSum, transformMapped);
 
   geoQuat = tf::createQuaternionMsgFromRollPitchYaw
             (transformMapped[2], -transformMapped[0], -transformMapped[1]);

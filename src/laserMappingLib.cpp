@@ -4,7 +4,7 @@
 #include <opencv/cv.h>
 
 void LaserMapping::run(const Inputs &inputs, Outputs &outputs, float timeLaserOdometry) {
-  transformAssociateToMap(transformBefMapped, transformAftMapped, inputs.t, transformTobeMapped);
+  improveOdometryByMapping(transformBefMapped, transformAftMapped, inputs.t, transformTobeMapped);
 
   pcl::PointCloud<PointType> laserCloudCornerStack;
   pcl::PointCloud<PointType> laserCloudSurfStack;
