@@ -33,16 +33,16 @@ catkin_package(
   INCLUDE_DIRS include
 )
 
-add_executable(scanRegistration src/scanRegistration.cpp src/scanRegistrationLib.cpp)
+add_executable(scanRegistration src/nodes/scanRegistration.cpp src/scanRegistrationLib.cpp)
 target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(laserOdometry src/laserOdometry.cpp src/laserOdometryLib.cpp src/common.cpp src/common_ros.cpp src/build_transform.cpp)
+add_executable(laserOdometry src/nodes/laserOdometry.cpp src/laserOdometryLib.cpp src/common.cpp src/common_ros.cpp src/build_transform.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(laserMapping src/laserMapping.cpp src/laserMappingLib.cpp src/common.cpp src/common_ros.cpp src/build_transform.cpp)
+add_executable(laserMapping src/nodes/laserMapping.cpp src/laserMappingLib.cpp src/common.cpp src/common_ros.cpp src/build_transform.cpp)
 target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(transformMaintenance src/transformMaintenance.cpp src/common.cpp src/common_ros.cpp src/build_transform.cpp)
+add_executable(transformMaintenance src/nodes/transformMaintenance.cpp src/common.cpp src/common_ros.cpp src/build_transform.cpp)
 target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
 if (CATKIN_ENABLE_TESTING)
