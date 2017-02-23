@@ -36,7 +36,7 @@ catkin_package(
 add_executable(scanRegistration src/scanRegistration.cpp src/scanRegistrationLib.cpp)
 target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
-add_executable(laserOdometry src/laserOdometry.cpp src/common.cpp src/build_transform.cpp)
+add_executable(laserOdometry src/laserOdometry.cpp src/laserOdometryLib.cpp src/common.cpp src/build_transform.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS} ${ButVELODYNE_LIBRARIES})
 
 add_executable(laserMapping src/laserMapping.cpp src/common.cpp src/build_transform.cpp)
