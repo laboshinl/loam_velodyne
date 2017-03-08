@@ -18,7 +18,8 @@ INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 find_package(but_velodyne REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS} ${ButVELODYNE_INCLUDE_DIRS} ../include)
 link_directories( ${PCL_LIBRARY_DIRS} ${ButVELODYNE_LIBRARY_DIRS})
-add_definitions(-DVELODYNE_MODEL=64)
+set(VELODYNE_MODEL "64" CACHE FILEPATH "Model of the Velodyne LiDAR (16, 32 or 64=default)")
+add_definitions(-DVELODYNE_MODEL=${VELODYNE_MODEL})
 
 add_executable(loam-odom loam-odom.cpp ../src/scanRegistrationLib.cpp ../src/laserOdometryLib.cpp
 ../src/common.cpp ../src/build_transform.cpp ../src/laserMappingLib.cpp)

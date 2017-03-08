@@ -25,7 +25,9 @@ include_directories(
 find_package(but_velodyne REQUIRED)
 include_directories(${PCL_INCLUDE_DIRS} ${ButVELODYNE_INCLUDE_DIRS})
 link_directories( ${PCL_LIBRARY_DIRS} ${ButVELODYNE_LIBRARY_DIRS})
-add_definitions(-DVELODYNE_MODEL=64)
+
+set(VELODYNE_MODEL "64" CACHE FILEPATH "Model of the Velodyne LiDAR (16, 32 or 64=default)")
+add_definitions(-DVELODYNE_MODEL=${VELODYNE_MODEL})
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs
