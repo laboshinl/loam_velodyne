@@ -179,52 +179,16 @@ void LaserMapping::run(const Inputs &inputs, Outputs &outputs, float timeLaserOd
         kdtreeSurfFromMap.nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
 
         if (pointSearchSqDis[4] < 1.0) {
-          cv::Mat matA0(5, 3, CV_32F);
-          cv::Mat matB0(5, 1, CV_32F, cv::Scalar::all(-1));
-          cv::Mat matX0(3, 1, CV_32F);
-          for (int j = 0; j < 5; j++) {
-            matA0.at<float>(j, 0) = laserCloudSurfFromMap->points[pointSearchInd[j]].x;
-            matA0.at<float>(j, 1) = laserCloudSurfFromMap->points[pointSearchInd[j]].y;
-            matA0.at<float>(j, 2) = laserCloudSurfFromMap->points[pointSearchInd[j]].z;
-          }
-          cv::solve(matA0, matB0, matX0, cv::DECOMP_QR);
-
-          float pa = matX0.at<float>(0, 0);
-          float pb = matX0.at<float>(1, 0);
-          float pc = matX0.at<float>(2, 0);
-          float pd = 1;
-
-          float ps = sqrt(pa * pa + pb * pb + pc * pc);
-          pa /= ps;
-          pb /= ps;
-          pc /= ps;
-          pd /= ps;
-
-          bool planeValid = true;
-          for (int j = 0; j < 5; j++) {
-            if (fabs(pa * laserCloudSurfFromMap->points[pointSearchInd[j]].x +
-                pb * laserCloudSurfFromMap->points[pointSearchInd[j]].y +
-                pc * laserCloudSurfFromMap->points[pointSearchInd[j]].z + pd) > 0.2) {
-              planeValid = false;
-              break;
-            }
-          }
+          Eigen::Vector4f planeCoef;
+          bool planeValid = findPlane(*laserCloudSurfFromMap, pointSearchInd, 0.2, planeCoef);
 
           if (planeValid) {
-            float pd2 = pa * pointSel.x + pb * pointSel.y + pc * pointSel.z + pd;
+            float pd2 = planeCoef.head(3).dot(pointSel.getVector3fMap()) + planeCoef(3);
 
-            PointType pointProj = pointSel;
-            pointProj.x -= pa * pd2;
-            pointProj.y -= pb * pd2;
-            pointProj.z -= pc * pd2;
-
-            float s = 1 - 0.9 * fabs(pd2) / sqrt(sqrt(pointSel.x * pointSel.x
-                    + pointSel.y * pointSel.y + pointSel.z * pointSel.z));
+            float s = 1 - 0.9 * fabs(pd2) / sqrt(pointSel.getVector3fMap().norm());
 
             PointType coeff;
-            coeff.x = s * pa;
-            coeff.y = s * pb;
-            coeff.z = s * pc;
+            coeff.getVector3fMap() = planeCoef.head(3) * s;
             coeff.intensity = s * pd2;
 
             if (s > 0.1) {
@@ -456,4 +420,33 @@ void LaserMapping::pointAssociateToMap(const PointType &pi, PointType &po)
 
 Eigen::Affine3f LaserMapping::getAssociationToBeMapped() {
   return getTransformationTRyRxRz(transformTobeMapped, -1.0);
+}
+
+bool LaserMapping::findPlane(const pcl::PointCloud<PointType> &cloud, const std::vector<int> &indices,
+    float maxDistance, Eigen::Vector4f &coef) {
+  cv::Mat matA0(5, 3, CV_32F);
+  cv::Mat matB0(5, 1, CV_32F, cv::Scalar::all(-1));
+  cv::Mat matX0(3, 1, CV_32F);
+  for (int j = 0; j < indices.size(); j++) {
+    matA0.at<float>(j, 0) = cloud[indices[j]].x;
+    matA0.at<float>(j, 1) = cloud[indices[j]].y;
+    matA0.at<float>(j, 2) = cloud[indices[j]].z;
+  }
+  cv::solve(matA0, matB0, matX0, cv::DECOMP_QR);
+
+  coef(0) = matX0.at<float>(0, 0);
+  coef(1) = matX0.at<float>(1, 0);
+  coef(2) = matX0.at<float>(2, 0);
+  coef(3) = 0;
+
+  float norm = coef.norm();
+  coef(3) = 1;
+  coef *= norm;
+
+  for (int j = 0; j < indices.size(); j++) {
+    if (fabs(coef.dot(cloud[indices[j]].getVector4fMap()) + coef(3)) > maxDistance) {
+      return false;
+    }
+  }
+  return true;
 }

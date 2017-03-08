@@ -154,6 +154,9 @@ protected:
   void pointAssociateToMap(const PointType &pi, PointType &po);
 
   Eigen::Affine3f getAssociationToBeMapped();
+
+  bool findPlane(const pcl::PointCloud<PointType> &cloud, const std::vector<int> &indices,
+      float maxDistance, Eigen::Vector4f &coef);
 };
 
 #endif
