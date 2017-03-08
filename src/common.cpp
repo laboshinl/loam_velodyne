@@ -31,3 +31,26 @@ void improveOdometryByMapping(const vector<float> &beforeMapping,
                  vecToTransform(current),
                  output);
 }
+
+/**
+ * Line is given by points AB.
+ * The result is the distance and the direction to closest point from the third point X.
+ */
+float getLinePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B,
+    const Eigen::Vector3f &X, Eigen::Vector3f &unit_direction) {
+  Eigen::Vector3f BXcrossAX = (X-B).cross(X-A);
+  float BXcrossAXnorm = BXcrossAX.norm();
+  float lengthAB = (A-B).norm();
+  unit_direction = -BXcrossAX.cross(B-A) / (BXcrossAXnorm * lengthAB);
+  return BXcrossAXnorm / lengthAB;
+}
+
+float getSurfacePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B, const Eigen::Vector3f &C,
+    const Eigen::Vector3f &X, Eigen::Vector3f &surfNormal) {
+  surfNormal = (B-A).cross(C-A);
+  surfNormal.normalize();
+
+  float normalDotA = -surfNormal.dot(A);
+  float distance = surfNormal.dot(X) + normalDotA;
+  return distance;
+}

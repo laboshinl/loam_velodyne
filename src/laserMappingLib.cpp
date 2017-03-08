@@ -2,6 +2,7 @@
 
 #include <loam_velodyne/build_transform.h>
 #include <opencv/cv.h>
+#include <opencv2/core/eigen.hpp>
 
 void LaserMapping::run(const Inputs &inputs, Outputs &outputs, float timeLaserOdometry) {
   improveOdometryByMapping(transformBefMapped, transformAftMapped, inputs.t, transformTobeMapped);
@@ -136,102 +137,31 @@ void LaserMapping::run(const Inputs &inputs, Outputs &outputs, float timeLaserOd
         kdtreeCornerFromMap.nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
 
         if (pointSearchSqDis[4] < 1.0) {
-          float cx = 0;
-          float cy = 0;
-          float cz = 0;
-          for (int j = 0; j < 5; j++) {
-            cx += laserCloudCornerFromMap->points[pointSearchInd[j]].x;
-            cy += laserCloudCornerFromMap->points[pointSearchInd[j]].y;
-            cz += laserCloudCornerFromMap->points[pointSearchInd[j]].z;
-          }
-          cx /= 5;
-          cy /= 5;
-          cz /= 5;
 
-          float a11 = 0;
-          float a12 = 0;
-          float a13 = 0;
-          float a22 = 0;
-          float a23 = 0;
-          float a33 = 0;
-          for (int j = 0; j < 5; j++) {
-            float ax = laserCloudCornerFromMap->points[pointSearchInd[j]].x - cx;
-            float ay = laserCloudCornerFromMap->points[pointSearchInd[j]].y - cy;
-            float az = laserCloudCornerFromMap->points[pointSearchInd[j]].z - cz;
+          Eigen::Vector4f centroid;
+          Eigen::Matrix3f covariance;
+          pcl::computeMeanAndCovarianceMatrix(*laserCloudCornerFromMap, pointSearchInd, covariance, centroid);
 
-            a11 += ax * ax;
-            a12 += ax * ay;
-            a13 += ax * az;
-            a22 += ay * ay;
-            a23 += ay * az;
-            a33 += az * az;
-          }
-          a11 /= 5;
-          a12 /= 5;
-          a13 /= 5;
-          a22 /= 5;
-          a23 /= 5;
-          a33 /= 5;
+          cv::Mat covarianceMat(3, 3, CV_32F, cv::Scalar::all(0));
+          cv::eigen2cv(covariance, covarianceMat);
+          cv::Mat eigenvalues(1, 3, CV_32F, cv::Scalar::all(0));
+          cv::Mat eigenvectors(3, 3, CV_32F, cv::Scalar::all(0));
+          cv::eigen(covarianceMat, eigenvalues, eigenvectors);
 
-          cv::Mat matA1(3, 3, CV_32F, cv::Scalar::all(0));
-          cv::Mat matD1(1, 3, CV_32F, cv::Scalar::all(0));
-          cv::Mat matV1(3, 3, CV_32F, cv::Scalar::all(0));
+          if (eigenvalues.at<float>(0) > 3 * eigenvalues.at<float>(1)) {
+            const Eigen::Vector3f &point = pointSel.getVector3fMap();
+            Eigen::Vector3f largestEigenVect;
+            cv::cv2eigen(eigenvectors.row(0), largestEigenVect);
+            Eigen::Vector3f centroidMinus = centroid.head(3) - largestEigenVect*0.1;
+            Eigen::Vector3f centroidPlus = centroid.head(3) + largestEigenVect*0.1;
 
-          matA1.at<float>(0, 0) = a11;
-          matA1.at<float>(0, 1) = a12;
-          matA1.at<float>(0, 2) = a13;
-          matA1.at<float>(1, 0) = a12;
-          matA1.at<float>(1, 1) = a22;
-          matA1.at<float>(1, 2) = a23;
-          matA1.at<float>(2, 0) = a13;
-          matA1.at<float>(2, 1) = a23;
-          matA1.at<float>(2, 2) = a33;
+            Eigen::Vector3f l;
+            float ld2 = getLinePointDistance(centroidMinus, centroidPlus, point, l);
 
-          cv::eigen(matA1, matD1, matV1);
-
-          if (matD1.at<float>(0, 0) > 3 * matD1.at<float>(0, 1)) {
-
-            float x0 = pointSel.x;
-            float y0 = pointSel.y;
-            float z0 = pointSel.z;
-            float x1 = cx + 0.1 * matV1.at<float>(0, 0);
-            float y1 = cy + 0.1 * matV1.at<float>(0, 1);
-            float z1 = cz + 0.1 * matV1.at<float>(0, 2);
-            float x2 = cx - 0.1 * matV1.at<float>(0, 0);
-            float y2 = cy - 0.1 * matV1.at<float>(0, 1);
-            float z2 = cz - 0.1 * matV1.at<float>(0, 2);
-
-            float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                       * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                       + ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
-                       * ((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
-                       + ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))
-                       * ((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1)));
-
-            float l12 = sqrt((x1 - x2)*(x1 - x2) + (y1 - y2)*(y1 - y2) + (z1 - z2)*(z1 - z2));
-
-            float la = ((y1 - y2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                     + (z1 - z2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))) / a012 / l12;
-
-            float lb = -((x1 - x2)*((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
-                     - (z1 - z2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
-
-            float lc = -((x1 - x2)*((x0 - x1)*(z0 - z2) - (x0 - x2)*(z0 - z1))
-                     + (y1 - y2)*((y0 - y1)*(z0 - z2) - (y0 - y2)*(z0 - z1))) / a012 / l12;
-
-            float ld2 = a012 / l12;
-
-            PointType pointProj = pointSel;
-            pointProj.x -= la * ld2;
-            pointProj.y -= lb * ld2;
-            pointProj.z -= lc * ld2;
-
-            float s = 1 - 0.9 * fabs(ld2);
+            float s = 1 - 0.9*ld2;
 
             PointType coeff;
-            coeff.x = s * la;
-            coeff.y = s * lb;
-            coeff.z = s * lc;
+            coeff.getVector3fMap() = l*s;
             coeff.intensity = s * ld2;
 
             if (s > 0.1) {

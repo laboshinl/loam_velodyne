@@ -94,18 +94,8 @@ protected:
 
   void accumulateTransformation(const float *t_increment, float *t_sum);
 
-  /**
-   * Line is given by points AB.
-   * The result is the distance and the direction to closest point from the third point X.
-   */
-  float getLinePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B,
-      const Eigen::Vector3f &X, Eigen::Vector3f &unit_direction);
-
   bool getCornerFeatureCoefficients(const PointType &A, const PointType &B,
       const PointType &X, int iterration, PointType &coeff);
-
-  float getSurfacePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B, const Eigen::Vector3f &C,
-      const Eigen::Vector3f &X, Eigen::Vector3f &surfNormal);
 
   bool getSurfaceFeatureCoefficients(const PointType &A, const PointType &B, const PointType &C,
       const PointType &X, int iterration, PointType &coefficients);
