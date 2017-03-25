@@ -35,16 +35,16 @@
 #include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
 #include <opencv/cv.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <tf/transform_datatypes.h>
 
 float transformSum[6] = {0};
 float transformIncre[6] = {0};
@@ -57,13 +57,12 @@ tf::TransformBroadcaster *tfBroadcaster2Pointer = NULL;
 nav_msgs::Odometry laserOdometry2;
 tf::StampedTransform laserOdometryTrans2;
 
-void transformAssociateToMap()
-{
-  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
-           - sin(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
+void transformAssociateToMap() {
+  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) -
+             sin(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
   float y1 = transformBefMapped[4] - transformSum[4];
-  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
-           + cos(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
+  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) +
+             cos(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
 
   float x2 = x1;
   float y2 = cos(transformSum[0]) * y1 + sin(transformSum[0]) * z1;
@@ -94,61 +93,90 @@ void transformAssociateToMap()
   float salz = sin(transformAftMapped[2]);
   float calz = cos(transformAftMapped[2]);
 
-  float srx = -sbcx*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz)
-            - cbcx*sbcy*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
-            - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
-            - cbcx*cbcy*(calx*salz*(cblz*sbly - cbly*sblx*sblz) 
-            - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx);
+  float srx = -sbcx * (salx * sblx + calx * cblx * salz * sblz +
+                       calx * calz * cblx * cblz) -
+              cbcx * sbcy * (calx * calz * (cbly * sblz - cblz * sblx * sbly) -
+                             calx * salz * (cbly * cblz + sblx * sbly * sblz) +
+                             cblx * salx * sbly) -
+              cbcx * cbcy * (calx * salz * (cblz * sbly - cbly * sblx * sblz) -
+                             calx * calz * (sbly * sblz + cbly * cblz * sblx) +
+                             cblx * cbly * salx);
   transformMapped[0] = -asin(srx);
 
-  float srycrx = sbcx*(cblx*cblz*(caly*salz - calz*salx*saly)
-               - cblx*sblz*(caly*calz + salx*saly*salz) + calx*saly*sblx)
-               - cbcx*cbcy*((caly*calz + salx*saly*salz)*(cblz*sbly - cbly*sblx*sblz)
-               + (caly*salz - calz*salx*saly)*(sbly*sblz + cbly*cblz*sblx) - calx*cblx*cbly*saly)
-               + cbcx*sbcy*((caly*calz + salx*saly*salz)*(cbly*cblz + sblx*sbly*sblz)
-               + (caly*salz - calz*salx*saly)*(cbly*sblz - cblz*sblx*sbly) + calx*cblx*saly*sbly);
-  float crycrx = sbcx*(cblx*sblz*(calz*saly - caly*salx*salz)
-               - cblx*cblz*(saly*salz + caly*calz*salx) + calx*caly*sblx)
-               + cbcx*cbcy*((saly*salz + caly*calz*salx)*(sbly*sblz + cbly*cblz*sblx)
-               + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) + calx*caly*cblx*cbly)
-               - cbcx*sbcy*((saly*salz + caly*calz*salx)*(cbly*sblz - cblz*sblx*sbly)
-               + (calz*saly - caly*salx*salz)*(cbly*cblz + sblx*sbly*sblz) - calx*caly*cblx*sbly);
-  transformMapped[1] = atan2(srycrx / cos(transformMapped[0]), 
-                             crycrx / cos(transformMapped[0]));
-  
-  float srzcrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
-               - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
-               - (cbcy*cbcz + sbcx*sbcy*sbcz)*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
-               - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
-               + cbcx*sbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
-  float crzcrx = (cbcy*sbcz - cbcz*sbcx*sbcy)*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
-               - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
-               - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
-               - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
-               + cbcx*cbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
-  transformMapped[2] = atan2(srzcrx / cos(transformMapped[0]), 
-                             crzcrx / cos(transformMapped[0]));
+  float srycrx = sbcx * (cblx * cblz * (caly * salz - calz * salx * saly) -
+                         cblx * sblz * (caly * calz + salx * saly * salz) +
+                         calx * saly * sblx) -
+                 cbcx * cbcy * ((caly * calz + salx * saly * salz) *
+                                    (cblz * sbly - cbly * sblx * sblz) +
+                                (caly * salz - calz * salx * saly) *
+                                    (sbly * sblz + cbly * cblz * sblx) -
+                                calx * cblx * cbly * saly) +
+                 cbcx * sbcy * ((caly * calz + salx * saly * salz) *
+                                    (cbly * cblz + sblx * sbly * sblz) +
+                                (caly * salz - calz * salx * saly) *
+                                    (cbly * sblz - cblz * sblx * sbly) +
+                                calx * cblx * saly * sbly);
+  float crycrx = sbcx * (cblx * sblz * (calz * saly - caly * salx * salz) -
+                         cblx * cblz * (saly * salz + caly * calz * salx) +
+                         calx * caly * sblx) +
+                 cbcx * cbcy * ((saly * salz + caly * calz * salx) *
+                                    (sbly * sblz + cbly * cblz * sblx) +
+                                (calz * saly - caly * salx * salz) *
+                                    (cblz * sbly - cbly * sblx * sblz) +
+                                calx * caly * cblx * cbly) -
+                 cbcx * sbcy * ((saly * salz + caly * calz * salx) *
+                                    (cbly * sblz - cblz * sblx * sbly) +
+                                (calz * saly - caly * salx * salz) *
+                                    (cbly * cblz + sblx * sbly * sblz) -
+                                calx * caly * cblx * sbly);
+  transformMapped[1] =
+      atan2(srycrx / cos(transformMapped[0]), crycrx / cos(transformMapped[0]));
 
-  x1 = cos(transformMapped[2]) * transformIncre[3] - sin(transformMapped[2]) * transformIncre[4];
-  y1 = sin(transformMapped[2]) * transformIncre[3] + cos(transformMapped[2]) * transformIncre[4];
+  float srzcrx = (cbcz * sbcy - cbcy * sbcx * sbcz) *
+                     (calx * salz * (cblz * sbly - cbly * sblx * sblz) -
+                      calx * calz * (sbly * sblz + cbly * cblz * sblx) +
+                      cblx * cbly * salx) -
+                 (cbcy * cbcz + sbcx * sbcy * sbcz) *
+                     (calx * calz * (cbly * sblz - cblz * sblx * sbly) -
+                      calx * salz * (cbly * cblz + sblx * sbly * sblz) +
+                      cblx * salx * sbly) +
+                 cbcx * sbcz * (salx * sblx + calx * cblx * salz * sblz +
+                                calx * calz * cblx * cblz);
+  float crzcrx = (cbcy * sbcz - cbcz * sbcx * sbcy) *
+                     (calx * calz * (cbly * sblz - cblz * sblx * sbly) -
+                      calx * salz * (cbly * cblz + sblx * sbly * sblz) +
+                      cblx * salx * sbly) -
+                 (sbcy * sbcz + cbcy * cbcz * sbcx) *
+                     (calx * salz * (cblz * sbly - cbly * sblx * sblz) -
+                      calx * calz * (sbly * sblz + cbly * cblz * sblx) +
+                      cblx * cbly * salx) +
+                 cbcx * cbcz * (salx * sblx + calx * cblx * salz * sblz +
+                                calx * calz * cblx * cblz);
+  transformMapped[2] =
+      atan2(srzcrx / cos(transformMapped[0]), crzcrx / cos(transformMapped[0]));
+
+  x1 = cos(transformMapped[2]) * transformIncre[3] -
+       sin(transformMapped[2]) * transformIncre[4];
+  y1 = sin(transformMapped[2]) * transformIncre[3] +
+       cos(transformMapped[2]) * transformIncre[4];
   z1 = transformIncre[5];
 
   x2 = x1;
   y2 = cos(transformMapped[0]) * y1 - sin(transformMapped[0]) * z1;
   z2 = sin(transformMapped[0]) * y1 + cos(transformMapped[0]) * z1;
 
-  transformMapped[3] = transformAftMapped[3] 
-                     - (cos(transformMapped[1]) * x2 + sin(transformMapped[1]) * z2);
+  transformMapped[3] = transformAftMapped[3] - (cos(transformMapped[1]) * x2 +
+                                                sin(transformMapped[1]) * z2);
   transformMapped[4] = transformAftMapped[4] - y2;
-  transformMapped[5] = transformAftMapped[5] 
-                     - (-sin(transformMapped[1]) * x2 + cos(transformMapped[1]) * z2);
+  transformMapped[5] = transformAftMapped[5] - (-sin(transformMapped[1]) * x2 +
+                                                cos(transformMapped[1]) * z2);
 }
 
-void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
-{
+void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr &laserOdometry) {
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
-  tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
+  tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w))
+      .getRPY(roll, pitch, yaw);
 
   transformSum[0] = -pitch;
   transformSum[1] = -yaw;
@@ -160,8 +188,8 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
 
   transformAssociateToMap();
 
-  geoQuat = tf::createQuaternionMsgFromRollPitchYaw
-            (transformMapped[2], -transformMapped[0], -transformMapped[1]);
+  geoQuat = tf::createQuaternionMsgFromRollPitchYaw(
+      transformMapped[2], -transformMapped[0], -transformMapped[1]);
 
   laserOdometry2.header.stamp = laserOdometry->header.stamp;
   laserOdometry2.pose.pose.orientation.x = -geoQuat.y;
@@ -174,16 +202,18 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
   pubLaserOdometry2Pointer->publish(laserOdometry2);
 
   laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
-  laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-  laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped[3], transformMapped[4], transformMapped[5]));
+  laserOdometryTrans2.setRotation(
+      tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
+  laserOdometryTrans2.setOrigin(
+      tf::Vector3(transformMapped[3], transformMapped[4], transformMapped[5]));
   tfBroadcaster2Pointer->sendTransform(laserOdometryTrans2);
 }
 
-void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)
-{
+void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr &odomAftMapped) {
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = odomAftMapped->pose.pose.orientation;
-  tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
+  tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w))
+      .getRPY(roll, pitch, yaw);
 
   transformAftMapped[0] = -pitch;
   transformAftMapped[1] = -yaw;
@@ -202,18 +232,18 @@ void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)
   transformBefMapped[5] = odomAftMapped->twist.twist.linear.z;
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
   ros::init(argc, argv, "transformMaintenance");
   ros::NodeHandle nh;
 
-  ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry> 
-                                     ("/laser_odom_to_init", 5, laserOdometryHandler);
+  ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry>(
+      "/laser_odom_to_init", 5, laserOdometryHandler);
 
-  ros::Subscriber subOdomAftMapped = nh.subscribe<nav_msgs::Odometry> 
-                                     ("/aft_mapped_to_init", 5, odomAftMappedHandler);
+  ros::Subscriber subOdomAftMapped = nh.subscribe<nav_msgs::Odometry>(
+      "/aft_mapped_to_init", 5, odomAftMappedHandler);
 
-  ros::Publisher pubLaserOdometry2 = nh.advertise<nav_msgs::Odometry> ("/integrated_to_init", 5);
+  ros::Publisher pubLaserOdometry2 =
+      nh.advertise<nav_msgs::Odometry>("/integrated_to_init", 5);
   pubLaserOdometry2Pointer = &pubLaserOdometry2;
   laserOdometry2.header.frame_id = "/camera_init";
   laserOdometry2.child_frame_id = "/camera";
