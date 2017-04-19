@@ -30,9 +30,17 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
+#ifndef __LOAM_COMMON_H__
+#define __LOAM_COMMON_H__
+
+
 #include <cmath>
 
 #include <pcl/point_types.h>
+#include <pcl/common/eigen.h>
+#include <pcl/common/transforms.h>
+
+#include <velodyne_pointcloud/point_types.h>
 
 typedef pcl::PointXYZI PointType;
 
@@ -45,3 +53,58 @@ inline double deg2rad(double degrees)
 {
   return degrees * M_PI / 180.0;
 }
+
+void improveOdometryByMapping(const std::vector<float> &beforeMapping,
+                             const std::vector<float> &afterMapping,
+                             const std::vector<float> &current,
+                             std::vector<float> &output);
+
+template <typename PointT>
+inline float pointsSqDistance(const PointT &pt1, const PointT &pt2) {
+  float dx = pt1.x - pt2.x;
+  float dy = pt1.y - pt2.y;
+  float dz = pt1.z - pt2.z;
+  return dx*dx + dy*dy + dz*dz;
+}
+
+template <typename PointT>
+inline float pointsDistance(const PointT &pt1, const PointT &pt2) {
+  return sqrt(pointsSqDistance(pt1, pt2));
+}
+
+template <typename PointT>
+inline float normalizedPointsSqDistance(const PointT &pt1, float normalization1,
+    const PointT &pt2, float normalization2) {
+  float dx = pt1.x*normalization1 - pt2.x*normalization2;
+  float dy = pt1.y*normalization1 - pt2.y*normalization2;
+  float dz = pt1.z*normalization1 - pt2.z*normalization2;
+  return dx*dx + dy*dy + dz*dz;
+}
+
+template <typename PointT>
+inline float normalizedPointsDistance(const PointT &pt1, float normalization1,
+    const PointT &pt2, float normalization2) {
+  return sqrt(normalizedPointsSqDistance(pt1, normalization1, pt2, normalization2));
+}
+
+template <typename PointT>
+inline float pointSqNorm(const PointT &pt) {
+  return pt.x*pt.x + pt.y*pt.y + pt.z*pt.z;
+}
+
+template <typename PointT>
+inline float pointNorm(const PointT &pt) {
+  return sqrt(pointSqNorm(pt));
+}
+
+/**
+ * Line is given by points AB.
+ * The result is the distance and the direction to closest point from the third point X.
+ */
+float getLinePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B,
+    const Eigen::Vector3f &X, Eigen::Vector3f &unit_direction);
+
+float getSurfacePointDistance(const Eigen::Vector3f &A, const Eigen::Vector3f &B, const Eigen::Vector3f &C,
+    const Eigen::Vector3f &X, Eigen::Vector3f &surfNormal);
+
+#endif
