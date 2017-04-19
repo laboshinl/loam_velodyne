@@ -46,22 +46,22 @@ public:
     imu(imu_), scanPeriod(scanPeriod_) {
   }
 
-  void run(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &originalLaserCloudIn, double scanTime,
+  void run(const pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &originalLaserCloudIn, double scanTime,
       Outputs &outputs);
 
 protected:
-  float computeStartHorizontalAngle(const velodyne_pointcloud::PointXYZIR &first_pt);
+  float computeStartHorizontalAngle(const velodyne_pointcloud::VelodynePoint &first_pt);
 
-  float computeEndHorizontalAngle(const velodyne_pointcloud::PointXYZIR &last_pt, float start_angle);
+  float computeEndHorizontalAngle(const velodyne_pointcloud::VelodynePoint &last_pt, float start_angle);
 
   // within the scan
   float computeRelativeTime(const PointType &point, float start_angle, float end_angle, bool &half_passed);
 
   float computeCurvature(const pcl::PointCloud<PointType> &cloud, int idx);
 
-  void switchAxis(pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &cloud);
+  void switchAxis(pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &cloud);
 
-  void extractFeatures(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &cloudIn, double timeScanCur,
+  void extractFeatures(const pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &cloudIn, double timeScanCur,
       pcl::PointCloud<PointType> &cloudOut,
       pcl::PointCloud<PointType> &cornerPointsSharp,
       pcl::PointCloud<PointType> &cornerPointsLessSharp,

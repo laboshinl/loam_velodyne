@@ -8,11 +8,11 @@
 #include <pcl/filters/impl/filter.hpp>
 #include <pcl/kdtree/kdtree_flann.h>
 
-void ScanRegistration::run(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &originalLaserCloudIn, double scanTime,
+void ScanRegistration::run(const pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &originalLaserCloudIn, double scanTime,
     Outputs &outputs) {
 
   std::vector<int> indices;
-  pcl::PointCloud<velodyne_pointcloud::PointXYZIR> laserCloudIn;
+  pcl::PointCloud<velodyne_pointcloud::VelodynePoint> laserCloudIn;
   pcl::removeNaNFromPointCloud(originalLaserCloudIn, laserCloudIn, indices);
   switchAxis(laserCloudIn);
 
@@ -28,11 +28,11 @@ void ScanRegistration::run(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR
       *outputs.surfPointsFlat, *outputs.surfPointsLessFlat);
 }
 
-float ScanRegistration::computeStartHorizontalAngle(const velodyne_pointcloud::PointXYZIR &first_pt) {
+float ScanRegistration::computeStartHorizontalAngle(const velodyne_pointcloud::VelodynePoint &first_pt) {
   return -atan2(first_pt.x, first_pt.z);
 }
 
-float ScanRegistration::computeEndHorizontalAngle(const velodyne_pointcloud::PointXYZIR &last_pt, float start_angle) {
+float ScanRegistration::computeEndHorizontalAngle(const velodyne_pointcloud::VelodynePoint &last_pt, float start_angle) {
   float end_angle = -atan2(last_pt.x, last_pt.z) + 2 * M_PI;
   if (end_angle - start_angle > 3 * M_PI) {
     end_angle -= 2 * M_PI;
@@ -85,8 +85,8 @@ float ScanRegistration::computeCurvature(const pcl::PointCloud<PointType> &cloud
   return diffX * diffX + diffY * diffY + diffZ * diffZ;
 }
 
-void ScanRegistration::switchAxis(pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &cloud) {
-  for(pcl::PointCloud<velodyne_pointcloud::PointXYZIR>::iterator p = cloud.begin(); p < cloud.end(); p++) {
+void ScanRegistration::switchAxis(pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &cloud) {
+  for(pcl::PointCloud<velodyne_pointcloud::VelodynePoint>::iterator p = cloud.begin(); p < cloud.end(); p++) {
     float x = p->x;
     p->x = p->y;
     p->y = p->z;
@@ -94,7 +94,7 @@ void ScanRegistration::switchAxis(pcl::PointCloud<velodyne_pointcloud::PointXYZI
   }
 }
 
-void ScanRegistration::extractFeatures(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &cloudIn, double timeScanCur,
+void ScanRegistration::extractFeatures(const pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &cloudIn, double timeScanCur,
     pcl::PointCloud<PointType> &cloudOut,
     pcl::PointCloud<PointType> &cornerPointsSharp,
     pcl::PointCloud<PointType> &cornerPointsLessSharp,

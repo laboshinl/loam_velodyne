@@ -85,7 +85,7 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
       imuIn->header.stamp.toSec());
 }
 
-void processLasserCloud(const pcl::PointCloud<velodyne_pointcloud::PointXYZIR> &originalLaserCloudIn, ros::Time stamp) {
+void processLasserCloud(pcl::PointCloud<velodyne_pointcloud::VelodynePoint> &originalLaserCloudIn, ros::Time stamp) {
 
   double timeScanCur = stamp.toSec();
 
@@ -149,7 +149,7 @@ void processCloudFiles(const vector<string> &files) {
     processLasserCloud(cloudIn, ros::Time(time));
 
     time += delta;
-    usleep(90 * 1000);
+    usleep(delta * 0.9 * 1000 * 1000);
   }
   cout << "DONE" << endl;
 }
