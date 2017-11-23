@@ -136,13 +136,9 @@ void TransformToEnd(PointType const * const pi, PointType * const po)
   Vector3 v2 = rotateX( v1, -rx );
   Vector3 v3 = rotateY( v2, -ry );
 
-  rx = transform_rot_X;
-  ry = transform_rot_Y;
-  rz = transform_rot_Z;
-
-  Vector3 v4 = rotateY( v3, ry );
-  Vector3 v5 = rotateX( v4, rx );
-  Vector3 v6 = rotateZ( v5, rz );
+  Vector3 v4 = rotateY( v3, transform_rot_Y );
+  Vector3 v5 = rotateX( v4, transform_rot_X );
+  Vector3 v6 = rotateZ( v5, transform_rot_Z );
   v6 += transform_pos - imuShiftFromStart;
 
   Vector3 v7 = rotateZ( v6, imuRollStart );
@@ -763,11 +759,15 @@ int main(int argc, char** argv)
           transform_pos.x() += matX.at<float>(3, 0);
           transform_pos.y() += matX.at<float>(4, 0);
           transform_pos.z() += matX.at<float>(5, 0);
-// TODO
-//          for(int i=0; i<6; i++){
-//            if(isnan(transform[i]))
-//              transform[i]=0;
-//          }
+
+          if( isnan(transform_rot_X.value()) ) transform_rot_X = Angle();
+          if( isnan(transform_rot_Y.value()) ) transform_rot_Y = Angle();
+          if( isnan(transform_rot_Z.value()) ) transform_rot_Z = Angle();
+
+          if( isnan(transform_pos.x()) ) transform_pos.x() = 0.0;
+          if( isnan(transform_pos.y()) ) transform_pos.y() = 0.0;
+          if( isnan(transform_pos.z()) ) transform_pos.z() = 0.0;
+
           float deltaR = sqrt(
                               pow(rad2deg(matX.at<float>(0, 0)), 2) +
                               pow(rad2deg(matX.at<float>(1, 0)), 2) +
