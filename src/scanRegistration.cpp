@@ -588,7 +588,6 @@ void imuHandler(const sensor_msgs::Imu::ConstPtr& imuIn)
   imuYaw[imuPointerLast] = yaw;
   imuAcc[imuPointerLast] = acc;
 
-
   AccumulateIMUShift();
 }
 

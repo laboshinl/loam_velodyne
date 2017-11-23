@@ -45,6 +45,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include "math_utils.h"
 
 const float scanPeriod = 0.1;
 
@@ -90,36 +91,35 @@ float pointSearchSurfInd1[40000];
 float pointSearchSurfInd2[40000];
 float pointSearchSurfInd3[40000];
 
-float transform[6] = {0};
+Angle transform_rot_X;
+Angle transform_rot_Y;
+Angle transform_rot_Z;
+Vector3 transform_pos;
+
 float transformSum[6] = {0};
 
-float imuRollStart = 0, imuPitchStart = 0, imuYawStart = 0;
-float imuRollLast = 0, imuPitchLast = 0, imuYawLast = 0;
-float imuShiftFromStartX = 0, imuShiftFromStartY = 0, imuShiftFromStartZ = 0;
-float imuVeloFromStartX = 0, imuVeloFromStartY = 0, imuVeloFromStartZ = 0;
+Angle imuRollStart, imuPitchStart, imuYawStart;
+Angle imuRollLast, imuPitchLast, imuYawLast;
+
+Vector3 imuShiftFromStart;
+Vector3 imuVeloFromStart;
 
 void TransformToStart(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
-  float rx = s * transform[0];
-  float ry = s * transform[1];
-  float rz = s * transform[2];
-  float tx = s * transform[3];
-  float ty = s * transform[4];
-  float tz = s * transform[5];
+  Angle rx = s * transform_rot_X.value();
+  Angle ry = s * transform_rot_Y.value();
+  Angle rz = s * transform_rot_Z.value();
 
-  float x1 = cos(rz) * (pi->x - tx) + sin(rz) * (pi->y - ty);
-  float y1 = -sin(rz) * (pi->x - tx) + cos(rz) * (pi->y - ty);
-  float z1 = (pi->z - tz);
+  Vector3 v0( Vector3(*pi) -s * transform_pos );
+  Vector3 v1 = rotateZ( v0, -rz );
+  Vector3 v2 = rotateX( v1, -rx );
+  Vector3 v3 = rotateY( v2, -ry );
 
-  float x2 = x1;
-  float y2 = cos(rx) * y1 + sin(rx) * z1;
-  float z2 = -sin(rx) * y1 + cos(rx) * z1;
-
-  po->x = cos(ry) * x2 - sin(ry) * z2;
-  po->y = y2;
-  po->z = sin(ry) * x2 + cos(ry) * z2;
+  po->x = v3.x();
+  po->y = v3.y();
+  po->z = v3.z();
   po->intensity = pi->intensity;
 }
 
@@ -127,69 +127,35 @@ void TransformToEnd(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
-  float rx = s * transform[0];
-  float ry = s * transform[1];
-  float rz = s * transform[2];
-  float tx = s * transform[3];
-  float ty = s * transform[4];
-  float tz = s * transform[5];
+  Angle rx = s * transform_rot_X.value();
+  Angle ry = s * transform_rot_Y.value();
+  Angle rz = s * transform_rot_Z.value();
 
-  float x1 = cos(rz) * (pi->x - tx) + sin(rz) * (pi->y - ty);
-  float y1 = -sin(rz) * (pi->x - tx) + cos(rz) * (pi->y - ty);
-  float z1 = (pi->z - tz);
+  Vector3 v0( Vector3(*pi) -s * transform_pos );
+  Vector3 v1 = rotateZ( v0, -rz );
+  Vector3 v2 = rotateX( v1, -rx );
+  Vector3 v3 = rotateY( v2, -ry );
 
-  float x2 = x1;
-  float y2 = cos(rx) * y1 + sin(rx) * z1;
-  float z2 = -sin(rx) * y1 + cos(rx) * z1;
+  rx = transform_rot_X;
+  ry = transform_rot_Y;
+  rz = transform_rot_Z;
 
-  float x3 = cos(ry) * x2 - sin(ry) * z2;
-  float y3 = y2;
-  float z3 = sin(ry) * x2 + cos(ry) * z2;
+  Vector3 v4 = rotateY( v3, ry );
+  Vector3 v5 = rotateX( v4, rx );
+  Vector3 v6 = rotateZ( v5, rz );
+  v6 += transform_pos - imuShiftFromStart;
 
-  rx = transform[0];
-  ry = transform[1];
-  rz = transform[2];
-  tx = transform[3];
-  ty = transform[4];
-  tz = transform[5];
+  Vector3 v7 = rotateZ( v6, imuRollStart );
+  Vector3 v8 = rotateX( v7, imuPitchStart );
+  Vector3 v9 = rotateY( v8, imuYawStart );
 
-  float x4 = cos(ry) * x3 + sin(ry) * z3;
-  float y4 = y3;
-  float z4 = -sin(ry) * x3 + cos(ry) * z3;
+  Vector3 v10 = rotateY( v9,  -imuYawLast );
+  Vector3 v11 = rotateX( v10, -imuPitchLast );
+  Vector3 v12 = rotateZ( v11, -imuRollLast );
 
-  float x5 = x4;
-  float y5 = cos(rx) * y4 - sin(rx) * z4;
-  float z5 = sin(rx) * y4 + cos(rx) * z4;
-
-  float x6 = cos(rz) * x5 - sin(rz) * y5 + tx;
-  float y6 = sin(rz) * x5 + cos(rz) * y5 + ty;
-  float z6 = z5 + tz;
-
-  float x7 = cos(imuRollStart) * (x6 - imuShiftFromStartX) 
-           - sin(imuRollStart) * (y6 - imuShiftFromStartY);
-  float y7 = sin(imuRollStart) * (x6 - imuShiftFromStartX) 
-           + cos(imuRollStart) * (y6 - imuShiftFromStartY);
-  float z7 = z6 - imuShiftFromStartZ;
-
-  float x8 = x7;
-  float y8 = cos(imuPitchStart) * y7 - sin(imuPitchStart) * z7;
-  float z8 = sin(imuPitchStart) * y7 + cos(imuPitchStart) * z7;
-
-  float x9 = cos(imuYawStart) * x8 + sin(imuYawStart) * z8;
-  float y9 = y8;
-  float z9 = -sin(imuYawStart) * x8 + cos(imuYawStart) * z8;
-
-  float x10 = cos(imuYawLast) * x9 - sin(imuYawLast) * z9;
-  float y10 = y9;
-  float z10 = sin(imuYawLast) * x9 + cos(imuYawLast) * z9;
-
-  float x11 = x10;
-  float y11 = cos(imuPitchLast) * y10 + sin(imuPitchLast) * z10;
-  float z11 = -sin(imuPitchLast) * y10 + cos(imuPitchLast) * z10;
-
-  po->x = cos(imuRollLast) * x11 + sin(imuRollLast) * y11;
-  po->y = -sin(imuRollLast) * x11 + cos(imuRollLast) * y11;
-  po->z = z11;
+  po->x = v12.x();
+  po->y = v12.y();
+  po->z = v12.z();
   po->intensity = int(pi->intensity);
 }
 
@@ -342,13 +308,13 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
   imuYawLast = imuTrans->points[1].y;
   imuRollLast = imuTrans->points[1].z;
 
-  imuShiftFromStartX = imuTrans->points[2].x;
-  imuShiftFromStartY = imuTrans->points[2].y;
-  imuShiftFromStartZ = imuTrans->points[2].z;
+  imuShiftFromStart.x() = imuTrans->points[2].x;
+  imuShiftFromStart.y() = imuTrans->points[2].y;
+  imuShiftFromStart.z() = imuTrans->points[2].z;
 
-  imuVeloFromStartX = imuTrans->points[3].x;
-  imuVeloFromStartY = imuTrans->points[3].y;
-  imuVeloFromStartZ = imuTrans->points[3].z;
+  imuVeloFromStart.x() = imuTrans->points[3].x;
+  imuVeloFromStart.y() = imuTrans->points[3].y;
+  imuVeloFromStart.z() = imuTrans->points[3].z;
 
   newImuTrans = true;
 }
@@ -448,16 +414,14 @@ int main(int argc, char** argv)
         laserCloudSurfLast2.header.frame_id = "/camera";
         pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
 
-        transformSum[0] += imuPitchStart;
-        transformSum[2] += imuRollStart;
+        transformSum[0] += imuPitchStart.value();
+        transformSum[2] += imuRollStart.value();
 
         systemInited = true;
         continue;
       }
 
-      transform[3] -= imuVeloFromStartX * scanPeriod;
-      transform[4] -= imuVeloFromStartY * scanPeriod;
-      transform[5] -= imuVeloFromStartZ * scanPeriod;
+      transform_pos -= imuVeloFromStart * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
         std::vector<int> indices;
@@ -708,15 +672,15 @@ int main(int argc, char** argv)
 
             float s = 1;
 
-            float srx = sin(s * transform[0]);
-            float crx = cos(s * transform[0]);
-            float sry = sin(s * transform[1]);
-            float cry = cos(s * transform[1]);
-            float srz = sin(s * transform[2]);
-            float crz = cos(s * transform[2]);
-            float tx = s * transform[3];
-            float ty = s * transform[4];
-            float tz = s * transform[5];
+            float srx = sin(s * transform_rot_X.value());
+            float crx = cos(s * transform_rot_X.value());
+            float sry = sin(s * transform_rot_Y.value());
+            float cry = cos(s * transform_rot_Y.value());
+            float srz = sin(s * transform_rot_Z.value());
+            float crz = cos(s * transform_rot_Z.value());
+            float tx = s * transform_pos.x();
+            float ty = s * transform_pos.y();
+            float tz = s * transform_pos.z();
 
             float arx = (-s*crx*sry*srz*pointOri.x + s*crx*crz*sry*pointOri.y + s*srx*sry*pointOri.z 
                       + s*tx*crx*sry*srz - s*ty*crx*crz*sry - s*tz*srx*sry) * coeff.x
@@ -793,17 +757,17 @@ int main(int argc, char** argv)
             matX = matP * matX2;
           }
 
-          transform[0] += matX.at<float>(0, 0);
-          transform[1] += matX.at<float>(1, 0);
-          transform[2] += matX.at<float>(2, 0);
-          transform[3] += matX.at<float>(3, 0);
-          transform[4] += matX.at<float>(4, 0);
-          transform[5] += matX.at<float>(5, 0);
-
-          for(int i=0; i<6; i++){
-            if(isnan(transform[i]))
-              transform[i]=0;
-          }
+          transform_rot_X = transform_rot_X.value() + matX.at<float>(0, 0);
+          transform_rot_Y = transform_rot_Y.value() + matX.at<float>(1, 0);
+          transform_rot_Z = transform_rot_Z.value() + matX.at<float>(2, 0);
+          transform_pos.x() += matX.at<float>(3, 0);
+          transform_pos.y() += matX.at<float>(4, 0);
+          transform_pos.z() += matX.at<float>(5, 0);
+// TODO
+//          for(int i=0; i<6; i++){
+//            if(isnan(transform[i]))
+//              transform[i]=0;
+//          }
           float deltaR = sqrt(
                               pow(rad2deg(matX.at<float>(0, 0)), 2) +
                               pow(rad2deg(matX.at<float>(1, 0)), 2) +
@@ -821,24 +785,25 @@ int main(int argc, char** argv)
 
       float rx, ry, rz, tx, ty, tz;
       AccumulateRotation(transformSum[0], transformSum[1], transformSum[2], 
-                         -transform[0], -transform[1] * 1.05, -transform[2], rx, ry, rz);
+                         -transform_rot_X.value(), -transform_rot_Y.value() * 1.05, -transform_rot_Z.value(),
+                         rx, ry, rz);
 
-      float x1 = cos(rz) * (transform[3] - imuShiftFromStartX) 
-               - sin(rz) * (transform[4] - imuShiftFromStartY);
-      float y1 = sin(rz) * (transform[3] - imuShiftFromStartX) 
-               + cos(rz) * (transform[4] - imuShiftFromStartY);
-      float z1 = transform[5] * 1.05 - imuShiftFromStartZ;
+      Vector3 v0( transform_pos.x()      - imuShiftFromStart.x(),
+                  transform_pos.y()      - imuShiftFromStart.y(),
+                  transform_pos.z()*1.05 - imuShiftFromStart.z() );
 
-      float x2 = x1;
-      float y2 = cos(rx) * y1 - sin(rx) * z1;
-      float z2 = sin(rx) * y1 + cos(rx) * z1;
+      Vector3 v1 = rotateZ( v0, rz );
+      Vector3 v2 = rotateX( v1, rx );
+      Vector3 v3 = rotateY( v2, ry );
 
-      tx = transformSum[3] - (cos(ry) * x2 + sin(ry) * z2);
-      ty = transformSum[4] - y2;
-      tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);
+      tx = transformSum[3] - v3.x();
+      ty = transformSum[4] - v3.y();
+      tz = transformSum[5] - v3.z();
 
-      PluginIMURotation(rx, ry, rz, imuPitchStart, imuYawStart, imuRollStart, 
-                        imuPitchLast, imuYawLast, imuRollLast, rx, ry, rz);
+      PluginIMURotation(rx, ry, rz,
+                        imuPitchStart.value(), imuYawStart.value(), imuRollStart.value(),
+                        imuPitchLast.value(), imuYawLast.value(), imuRollLast.value(),
+                        rx, ry, rz);
 
       transformSum[0] = rx;
       transformSum[1] = ry;
