@@ -66,6 +66,21 @@ public:
         _cos = ( other._cos );
         _sin = ( other._sin );
     }
+
+    void operator +=( const float& val)
+    {
+        _ang = ( val );
+        _cos = ( std::cos(_ang) );
+        _sin = ( std::sin(_ang) );
+    }
+
+    void operator +=( const Angle& other)
+    {
+        _ang = ( other._ang );
+        _cos = ( std::cos(_ang) );
+        _sin = ( std::sin(_ang) );
+    }
+
     Angle operator-() const
     {
         Angle out;
@@ -106,6 +121,13 @@ inline Vector3 rotateZ(const Vector3& v,const Angle& ang)
                     ang.sin() * v.x() + ang.cos() * v.y(),
                     v.z() );
 }
+
+struct Twist{
+  Angle rot_x;
+  Angle rot_y;
+  Angle rot_z;
+  Vector3 pos;
+};
 
 
 #endif // MATH_UTILS_H

@@ -91,12 +91,8 @@ float pointSearchSurfInd1[40000];
 float pointSearchSurfInd2[40000];
 float pointSearchSurfInd3[40000];
 
-Angle transform_rot_X;
-Angle transform_rot_Y;
-Angle transform_rot_Z;
-Vector3 transform_pos;
-
-float transformSum[6] = {0};
+Twist transform;
+Twist transformSum;
 
 Angle imuRollStart, imuPitchStart, imuYawStart;
 Angle imuRollLast, imuPitchLast, imuYawLast;
@@ -108,11 +104,11 @@ void TransformToStart(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
-  Angle rx = s * transform_rot_X.value();
-  Angle ry = s * transform_rot_Y.value();
-  Angle rz = s * transform_rot_Z.value();
+  Angle rx = s * transform.rot_x.value();
+  Angle ry = s * transform.rot_y.value();
+  Angle rz = s * transform.rot_z.value();
 
-  Vector3 v0( Vector3(*pi) -s * transform_pos );
+  Vector3 v0( Vector3(*pi) -s * transform.pos );
   Vector3 v1 = rotateZ( v0, -rz );
   Vector3 v2 = rotateX( v1, -rx );
   Vector3 v3 = rotateY( v2, -ry );
@@ -127,19 +123,19 @@ void TransformToEnd(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
-  Angle rx = s * transform_rot_X.value();
-  Angle ry = s * transform_rot_Y.value();
-  Angle rz = s * transform_rot_Z.value();
+  Angle rx = s * transform.rot_x.value();
+  Angle ry = s * transform.rot_y.value();
+  Angle rz = s * transform.rot_z.value();
 
-  Vector3 v0( Vector3(*pi) -s * transform_pos );
+  Vector3 v0( Vector3(*pi) -s * transform.pos );
   Vector3 v1 = rotateZ( v0, -rz );
   Vector3 v2 = rotateX( v1, -rx );
   Vector3 v3 = rotateY( v2, -ry );
 
-  Vector3 v4 = rotateY( v3, transform_rot_Y );
-  Vector3 v5 = rotateX( v4, transform_rot_X );
-  Vector3 v6 = rotateZ( v5, transform_rot_Z );
-  v6 += transform_pos - imuShiftFromStart;
+  Vector3 v4 = rotateY( v3, transform.rot_y );
+  Vector3 v5 = rotateX( v4, transform.rot_x );
+  Vector3 v6 = rotateZ( v5, transform.rot_z );
+  v6 += transform.pos - imuShiftFromStart;
 
   Vector3 v7 = rotateZ( v6, imuRollStart );
   Vector3 v8 = rotateX( v7, imuPitchStart );
@@ -155,29 +151,31 @@ void TransformToEnd(PointType const * const pi, PointType * const po)
   po->intensity = int(pi->intensity);
 }
 
-void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, float blz, 
-                       float alx, float aly, float alz, float &acx, float &acy, float &acz)
+void PluginIMURotation(const Angle& bcx, const Angle& bcy, const Angle& bcz,
+                       const Angle& blx, const Angle& bly, const Angle& blz,
+                       const Angle& alx, const Angle& aly, const Angle& alz,
+                       Angle &acx, Angle &acy, Angle &acz)
 {
-  float sbcx = sin(bcx);
-  float cbcx = cos(bcx);
-  float sbcy = sin(bcy);
-  float cbcy = cos(bcy);
-  float sbcz = sin(bcz);
-  float cbcz = cos(bcz);
+  float sbcx = bcx.sin();
+  float cbcx = bcx.cos();
+  float sbcy = bcy.sin();
+  float cbcy = bcy.cos();
+  float sbcz = bcz.sin();
+  float cbcz = bcz.cos();
 
-  float sblx = sin(blx);
-  float cblx = cos(blx);
-  float sbly = sin(bly);
-  float cbly = cos(bly);
-  float sblz = sin(blz);
-  float cblz = cos(blz);
+  float sblx = blx.sin();
+  float cblx = blx.cos();
+  float sbly = bly.sin();
+  float cbly = bly.cos();
+  float sblz = blz.sin();
+  float cblz = blz.cos();
 
-  float salx = sin(alx);
-  float calx = cos(alx);
-  float saly = sin(aly);
-  float caly = cos(aly);
-  float salz = sin(alz);
-  float calz = cos(alz);
+  float salx = alx.sin();
+  float calx = alx.cos();
+  float saly = aly.sin();
+  float caly = aly.cos();
+  float salz = alz.sin();
+  float calz = alz.cos();
 
   float srx = -sbcx*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly) 
             - cbcx*cbcz*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
@@ -196,7 +194,7 @@ void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, fl
                - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*saly*(cbly*sblz - cblz*sblx*sbly) 
                - calx*caly*(sbly*sblz + cbly*cblz*sblx) + cblx*cblz*salx) 
                + cbcx*cbcy*(salx*sblx + calx*caly*cblx*cbly + calx*cblx*saly*sbly);
-  acy = atan2(srycrx / cos(acx), crycrx / cos(acx));
+  acy = atan2(srycrx / acx.cos(), crycrx / acx.cos());
   
   float srzcrx = sbcx*(cblx*cbly*(calz*saly - caly*salx*salz) 
                - cblx*sbly*(caly*calz + salx*saly*salz) + calx*salz*sblx) 
@@ -212,26 +210,27 @@ void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, fl
                + calx*calz*cblx*cblz) - cbcx*sbcz*((saly*salz + caly*calz*salx)*(cblz*sbly 
                - cbly*sblx*sblz) + (caly*salz - calz*salx*saly)*(cbly*cblz + sblx*sbly*sblz) 
                - calx*calz*cblx*sblz);
-  acz = atan2(srzcrx / cos(acx), crzcrx / cos(acx));
+  acz = atan2(srzcrx / acx.cos(), crzcrx / acx.cos());
 }
 
-void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz, 
-                        float &ox, float &oy, float &oz)
+void AccumulateRotation(Angle cx, Angle cy, Angle cz,
+                        Angle lx, Angle ly, Angle lz,
+                        Angle &ox, Angle &oy, Angle &oz)
 {
-  float srx = cos(lx)*cos(cx)*sin(ly)*sin(cz) - cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx);
+  float srx = lx.cos()*cx.cos()*ly.sin()*cz.sin() - cx.cos()*cz.cos()*lx.sin() - lx.cos()*ly.cos()*cx.sin();
   ox = -asin(srx);
 
-  float srycrx = sin(lx)*(cos(cy)*sin(cz) - cos(cz)*sin(cx)*sin(cy)) + cos(lx)*sin(ly)*(cos(cy)*cos(cz) 
-               + sin(cx)*sin(cy)*sin(cz)) + cos(lx)*cos(ly)*cos(cx)*sin(cy);
-  float crycrx = cos(lx)*cos(ly)*cos(cx)*cos(cy) - cos(lx)*sin(ly)*(cos(cz)*sin(cy) 
-               - cos(cy)*sin(cx)*sin(cz)) - sin(lx)*(sin(cy)*sin(cz) + cos(cy)*cos(cz)*sin(cx));
-  oy = atan2(srycrx / cos(ox), crycrx / cos(ox));
+  float srycrx = lx.sin()*(cy.cos()*cz.sin() - cz.cos()*cx.sin()*cy.sin()) + lx.cos()*ly.sin()*(cy.cos()*cz.cos()
+               + cx.sin()*cy.sin()*cz.sin()) + lx.cos()*ly.cos()*cx.cos()*cy.sin();
+  float crycrx = lx.cos()*ly.cos()*cx.cos()*cy.cos() - lx.cos()*ly.sin()*(cz.cos()*cy.sin()
+               - cy.cos()*cx.sin()*cz.sin()) - lx.sin()*(cy.sin()*cz.sin() + cy.cos()*cz.cos()*cx.sin());
+  oy = atan2(srycrx / ox.cos(), crycrx / ox.cos());
 
-  float srzcrx = sin(cx)*(cos(lz)*sin(ly) - cos(ly)*sin(lx)*sin(lz)) + cos(cx)*sin(cz)*(cos(ly)*cos(lz) 
-               + sin(lx)*sin(ly)*sin(lz)) + cos(lx)*cos(cx)*cos(cz)*sin(lz);
-  float crzcrx = cos(lx)*cos(lz)*cos(cx)*cos(cz) - cos(cx)*sin(cz)*(cos(ly)*sin(lz) 
-               - cos(lz)*sin(lx)*sin(ly)) - sin(cx)*(sin(ly)*sin(lz) + cos(ly)*cos(lz)*sin(lx));
-  oz = atan2(srzcrx / cos(ox), crzcrx / cos(ox));
+  float srzcrx = cx.sin()*(lz.cos()*ly.sin() - ly.cos()*lx.sin()*lz.sin()) + cx.cos()*cz.sin()*(ly.cos()*lz.cos()
+               + lx.sin()*ly.sin()*lz.sin()) + lx.cos()*cx.cos()*cz.cos()*lz.sin();
+  float crzcrx = lx.cos()*lz.cos()*cx.cos()*cz.cos() - cx.cos()*cz.sin()*(ly.cos()*lz.sin()
+               - lz.cos()*lx.sin()*ly.sin()) - cx.sin()*(ly.sin()*lz.sin() + ly.cos()*lz.cos()*lx.sin());
+  oz = atan2(srzcrx / ox.cos(), crzcrx / ox.cos());
 }
 
 void laserCloudSharpHandler(const sensor_msgs::PointCloud2ConstPtr& cornerPointsSharp2)
@@ -410,14 +409,14 @@ int main(int argc, char** argv)
         laserCloudSurfLast2.header.frame_id = "/camera";
         pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
 
-        transformSum[0] += imuPitchStart.value();
-        transformSum[2] += imuRollStart.value();
+        transformSum.rot_x += imuPitchStart;
+        transformSum.rot_z += imuRollStart;
 
         systemInited = true;
         continue;
       }
 
-      transform_pos -= imuVeloFromStart * scanPeriod;
+      transform.pos -= imuVeloFromStart * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
         std::vector<int> indices;
@@ -668,15 +667,15 @@ int main(int argc, char** argv)
 
             float s = 1;
 
-            float srx = sin(s * transform_rot_X.value());
-            float crx = cos(s * transform_rot_X.value());
-            float sry = sin(s * transform_rot_Y.value());
-            float cry = cos(s * transform_rot_Y.value());
-            float srz = sin(s * transform_rot_Z.value());
-            float crz = cos(s * transform_rot_Z.value());
-            float tx = s * transform_pos.x();
-            float ty = s * transform_pos.y();
-            float tz = s * transform_pos.z();
+            float srx = sin(s * transform.rot_x.value());
+            float crx = cos(s * transform.rot_x.value());
+            float sry = sin(s * transform.rot_y.value());
+            float cry = cos(s * transform.rot_y.value());
+            float srz = sin(s * transform.rot_z.value());
+            float crz = cos(s * transform.rot_z.value());
+            float tx = s * transform.pos.x();
+            float ty = s * transform.pos.y();
+            float tz = s * transform.pos.z();
 
             float arx = (-s*crx*sry*srz*pointOri.x + s*crx*crz*sry*pointOri.y + s*srx*sry*pointOri.z 
                       + s*tx*crx*sry*srz - s*ty*crx*crz*sry - s*tz*srx*sry) * coeff.x
@@ -753,20 +752,20 @@ int main(int argc, char** argv)
             matX = matP * matX2;
           }
 
-          transform_rot_X = transform_rot_X.value() + matX.at<float>(0, 0);
-          transform_rot_Y = transform_rot_Y.value() + matX.at<float>(1, 0);
-          transform_rot_Z = transform_rot_Z.value() + matX.at<float>(2, 0);
-          transform_pos.x() += matX.at<float>(3, 0);
-          transform_pos.y() += matX.at<float>(4, 0);
-          transform_pos.z() += matX.at<float>(5, 0);
+          transform.rot_x = transform.rot_x.value() + matX.at<float>(0, 0);
+          transform.rot_y = transform.rot_y.value() + matX.at<float>(1, 0);
+          transform.rot_z = transform.rot_z.value() + matX.at<float>(2, 0);
+          transform.pos.x() += matX.at<float>(3, 0);
+          transform.pos.y() += matX.at<float>(4, 0);
+          transform.pos.z() += matX.at<float>(5, 0);
 
-          if( isnan(transform_rot_X.value()) ) transform_rot_X = Angle();
-          if( isnan(transform_rot_Y.value()) ) transform_rot_Y = Angle();
-          if( isnan(transform_rot_Z.value()) ) transform_rot_Z = Angle();
+          if( isnan(transform.rot_x.value()) ) transform.rot_x = Angle();
+          if( isnan(transform.rot_y.value()) ) transform.rot_y = Angle();
+          if( isnan(transform.rot_z.value()) ) transform.rot_z = Angle();
 
-          if( isnan(transform_pos.x()) ) transform_pos.x() = 0.0;
-          if( isnan(transform_pos.y()) ) transform_pos.y() = 0.0;
-          if( isnan(transform_pos.z()) ) transform_pos.z() = 0.0;
+          if( isnan(transform.pos.x()) ) transform.pos.x() = 0.0;
+          if( isnan(transform.pos.y()) ) transform.pos.y() = 0.0;
+          if( isnan(transform.pos.z()) ) transform.pos.z() = 0.0;
 
           float deltaR = sqrt(
                               pow(rad2deg(matX.at<float>(0, 0)), 2) +
@@ -783,50 +782,50 @@ int main(int argc, char** argv)
         }
       }
 
-      float rx, ry, rz, tx, ty, tz;
-      AccumulateRotation(transformSum[0], transformSum[1], transformSum[2], 
-                         -transform_rot_X.value(), -transform_rot_Y.value() * 1.05, -transform_rot_Z.value(),
+      Angle rx, ry, rz;
+
+      AccumulateRotation(transformSum.rot_x,
+                         transformSum.rot_y,
+                         transformSum.rot_z,
+                         -transform.rot_x,
+                         -transform.rot_y.value() * 1.05,
+                         -transform.rot_z,
                          rx, ry, rz);
 
-      Vector3 v0( transform_pos.x()      - imuShiftFromStart.x(),
-                  transform_pos.y()      - imuShiftFromStart.y(),
-                  transform_pos.z()*1.05 - imuShiftFromStart.z() );
+      Vector3 v0( transform.pos.x()      - imuShiftFromStart.x(),
+                  transform.pos.y()      - imuShiftFromStart.y(),
+                  transform.pos.z()*1.05 - imuShiftFromStart.z() );
 
       Vector3 v1 = rotateZ( v0, rz );
       Vector3 v2 = rotateX( v1, rx );
       Vector3 v3 = rotateY( v2, ry );
-
-      tx = transformSum[3] - v3.x();
-      ty = transformSum[4] - v3.y();
-      tz = transformSum[5] - v3.z();
+      Vector3 trans = transformSum.pos - v3;
 
       PluginIMURotation(rx, ry, rz,
-                        imuPitchStart.value(), imuYawStart.value(), imuRollStart.value(),
-                        imuPitchLast.value(), imuYawLast.value(), imuRollLast.value(),
+                        imuPitchStart, imuYawStart, imuRollStart,
+                        imuPitchLast, imuYawLast, imuRollLast,
                         rx, ry, rz);
 
-      transformSum[0] = rx;
-      transformSum[1] = ry;
-      transformSum[2] = rz;
-      transformSum[3] = tx;
-      transformSum[4] = ty;
-      transformSum[5] = tz;
+      transformSum.rot_x = rx;
+      transformSum.rot_y = ry;
+      transformSum.rot_z = rz;
+      transformSum.pos = trans;
 
-      geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz, -rx, -ry);
+      geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz.value(), -rx.value(), -ry.value());
 
       laserOdometry.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
       laserOdometry.pose.pose.orientation.x = -geoQuat.y;
       laserOdometry.pose.pose.orientation.y = -geoQuat.z;
       laserOdometry.pose.pose.orientation.z = geoQuat.x;
       laserOdometry.pose.pose.orientation.w = geoQuat.w;
-      laserOdometry.pose.pose.position.x = tx;
-      laserOdometry.pose.pose.position.y = ty;
-      laserOdometry.pose.pose.position.z = tz;
+      laserOdometry.pose.pose.position.x = trans.x();
+      laserOdometry.pose.pose.position.y = trans.y();
+      laserOdometry.pose.pose.position.z = trans.z();
       pubLaserOdometry.publish(laserOdometry);
 
       laserOdometryTrans.stamp_ = ros::Time().fromSec(timeSurfPointsLessFlat);
       laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-      laserOdometryTrans.setOrigin(tf::Vector3(tx, ty, tz));
+      laserOdometryTrans.setOrigin(tf::Vector3( trans.x(), trans.y(), trans.z()) );
       tfBroadcaster.sendTransform(laserOdometryTrans);
 
       int cornerPointsLessSharpNum = cornerPointsLessSharp->points.size();
