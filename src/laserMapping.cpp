@@ -45,6 +45,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include "math_utils.h"
 
 const float scanPeriod = 0.1;
 
@@ -93,11 +94,11 @@ pcl::PointCloud<PointType>::Ptr laserCloudSurfArray2[laserCloudNum];
 pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerFromMap(new pcl::KdTreeFLANN<PointType>());
 pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap(new pcl::KdTreeFLANN<PointType>());
 
-float transformSum[6] = {0};
-float transformIncre[6] = {0};
-float transformTobeMapped[6] = {0};
-float transformBefMapped[6] = {0};
-float transformAftMapped[6] = {0};
+Twist transformSum;
+Twist transformIncre;
+Twist transformTobeMapped;
+Twist transformBefMapped;
+Twist transformAftMapped;
 
 int imuPointerFront = 0;
 int imuPointerLast = -1;
@@ -109,47 +110,38 @@ float imuPitch[imuQueLength] = {0};
 
 void transformAssociateToMap()
 {
-  float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
-           - sin(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
-  float y1 = transformBefMapped[4] - transformSum[4];
-  float z1 = sin(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
-           + cos(transformSum[1]) * (transformBefMapped[5] - transformSum[5]);
+  Vector3 v0 = transformBefMapped.pos -  transformSum.pos;
+  Vector3 v1 = rotateY( v0, -(transformSum.rot_y) );
+  Vector3 v2 = rotateX( v1, -(transformSum.rot_x) );
+  transformIncre.pos = rotateZ( v2, -(transformSum.rot_z) );
 
-  float x2 = x1;
-  float y2 = cos(transformSum[0]) * y1 + sin(transformSum[0]) * z1;
-  float z2 = -sin(transformSum[0]) * y1 + cos(transformSum[0]) * z1;
+  float sbcx = transformSum.rot_x.sin();
+  float cbcx = transformSum.rot_x.cos();
+  float sbcy = transformSum.rot_y.sin();
+  float cbcy = transformSum.rot_y.cos();
+  float sbcz = transformSum.rot_z.sin();
+  float cbcz = transformSum.rot_z.cos();
 
-  transformIncre[3] = cos(transformSum[2]) * x2 + sin(transformSum[2]) * y2;
-  transformIncre[4] = -sin(transformSum[2]) * x2 + cos(transformSum[2]) * y2;
-  transformIncre[5] = z2;
+  float sblx = transformBefMapped.rot_x.sin();
+  float cblx = transformBefMapped.rot_x.cos();
+  float sbly = transformBefMapped.rot_y.sin();
+  float cbly = transformBefMapped.rot_y.cos();
+  float sblz = transformBefMapped.rot_z.sin();
+  float cblz = transformBefMapped.rot_z.cos();
 
-  float sbcx = sin(transformSum[0]);
-  float cbcx = cos(transformSum[0]);
-  float sbcy = sin(transformSum[1]);
-  float cbcy = cos(transformSum[1]);
-  float sbcz = sin(transformSum[2]);
-  float cbcz = cos(transformSum[2]);
-
-  float sblx = sin(transformBefMapped[0]);
-  float cblx = cos(transformBefMapped[0]);
-  float sbly = sin(transformBefMapped[1]);
-  float cbly = cos(transformBefMapped[1]);
-  float sblz = sin(transformBefMapped[2]);
-  float cblz = cos(transformBefMapped[2]);
-
-  float salx = sin(transformAftMapped[0]);
-  float calx = cos(transformAftMapped[0]);
-  float saly = sin(transformAftMapped[1]);
-  float caly = cos(transformAftMapped[1]);
-  float salz = sin(transformAftMapped[2]);
-  float calz = cos(transformAftMapped[2]);
+  float salx = transformAftMapped.rot_x.sin();
+  float calx = transformAftMapped.rot_x.cos();
+  float saly = transformAftMapped.rot_y.sin();
+  float caly = transformAftMapped.rot_y.cos();
+  float salz = transformAftMapped.rot_z.sin();
+  float calz = transformAftMapped.rot_z.cos();
 
   float srx = -sbcx*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz)
             - cbcx*sbcy*(calx*calz*(cbly*sblz - cblz*sblx*sbly)
             - calx*salz*(cbly*cblz + sblx*sbly*sblz) + cblx*salx*sbly)
             - cbcx*cbcy*(calx*salz*(cblz*sbly - cbly*sblx*sblz) 
             - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx);
-  transformTobeMapped[0] = -asin(srx);
+  transformTobeMapped.rot_x = -asin(srx);
 
   float srycrx = sbcx*(cblx*cblz*(caly*salz - calz*salx*saly)
                - cblx*sblz*(caly*calz + salx*saly*salz) + calx*saly*sblx)
@@ -163,8 +155,8 @@ void transformAssociateToMap()
                + (calz*saly - caly*salx*salz)*(cblz*sbly - cbly*sblx*sblz) + calx*caly*cblx*cbly)
                - cbcx*sbcy*((saly*salz + caly*calz*salx)*(cbly*sblz - cblz*sblx*sbly)
                + (calz*saly - caly*salx*salz)*(cbly*cblz + sblx*sbly*sblz) - calx*caly*cblx*sbly);
-  transformTobeMapped[1] = atan2(srycrx / cos(transformTobeMapped[0]), 
-                                 crycrx / cos(transformTobeMapped[0]));
+  transformTobeMapped.rot_y = atan2(srycrx / transformTobeMapped.rot_x.cos(),
+                                 crycrx / transformTobeMapped.rot_x.cos());
   
   float srzcrx = (cbcz*sbcy - cbcy*sbcx*sbcz)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
                - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
@@ -176,22 +168,14 @@ void transformAssociateToMap()
                - (sbcy*sbcz + cbcy*cbcz*sbcx)*(calx*salz*(cblz*sbly - cbly*sblx*sblz)
                - calx*calz*(sbly*sblz + cbly*cblz*sblx) + cblx*cbly*salx)
                + cbcx*cbcz*(salx*sblx + calx*cblx*salz*sblz + calx*calz*cblx*cblz);
-  transformTobeMapped[2] = atan2(srzcrx / cos(transformTobeMapped[0]), 
-                                 crzcrx / cos(transformTobeMapped[0]));
+  transformTobeMapped.rot_z = atan2(srzcrx / transformTobeMapped.rot_x.cos(),
+                                 crzcrx / transformTobeMapped.rot_x.cos());
 
-  x1 = cos(transformTobeMapped[2]) * transformIncre[3] - sin(transformTobeMapped[2]) * transformIncre[4];
-  y1 = sin(transformTobeMapped[2]) * transformIncre[3] + cos(transformTobeMapped[2]) * transformIncre[4];
-  z1 = transformIncre[5];
-
-  x2 = x1;
-  y2 = cos(transformTobeMapped[0]) * y1 - sin(transformTobeMapped[0]) * z1;
-  z2 = sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-
-  transformTobeMapped[3] = transformAftMapped[3] 
-                         - (cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2);
-  transformTobeMapped[4] = transformAftMapped[4] - y2;
-  transformTobeMapped[5] = transformAftMapped[5] 
-                         - (-sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2);
+  Vector3 v3;
+  v1 = rotateZ( transformIncre.pos,  transformTobeMapped.rot_z);
+  v2 = rotateX( v1,  transformTobeMapped.rot_x);
+  v3 = rotateY( v2,  transformTobeMapped.rot_y);
+  transformTobeMapped.pos = transformAftMapped.pos - v3;
 }
 
 void transformUpdate()
@@ -219,53 +203,37 @@ void transformUpdate()
       imuPitchLast = imuPitch[imuPointerFront] * ratioFront + imuPitch[imuPointerBack] * ratioBack;
     }
 
-    transformTobeMapped[0] = 0.998 * transformTobeMapped[0] + 0.002 * imuPitchLast;
-    transformTobeMapped[2] = 0.998 * transformTobeMapped[2] + 0.002 * imuRollLast;
+    transformTobeMapped.rot_x = 0.998 * transformTobeMapped.rot_x.value() + 0.002 * imuPitchLast;
+    transformTobeMapped.rot_z = 0.998 * transformTobeMapped.rot_z.value() + 0.002 * imuRollLast;
   }
 
-  for (int i = 0; i < 6; i++) {
-    transformBefMapped[i] = transformSum[i];
-    transformAftMapped[i] = transformTobeMapped[i];
-  }
+  transformBefMapped = transformSum;
+  transformAftMapped = transformTobeMapped;
 }
 
 void pointAssociateToMap(PointType const * const pi, PointType * const po)
 {
-  float x1 = cos(transformTobeMapped[2]) * pi->x
-           - sin(transformTobeMapped[2]) * pi->y;
-  float y1 = sin(transformTobeMapped[2]) * pi->x
-           + cos(transformTobeMapped[2]) * pi->y;
-  float z1 = pi->z;
+  Vector3 v1 = rotateZ( *pi, transformTobeMapped.rot_z);
+  Vector3 v2 = rotateX(  v1, transformTobeMapped.rot_x);
+  Vector3 v3 = rotateY(  v2, transformTobeMapped.rot_y);
+  v3 += transformTobeMapped.pos;
 
-  float x2 = x1;
-  float y2 = cos(transformTobeMapped[0]) * y1 - sin(transformTobeMapped[0]) * z1;
-  float z2 = sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-
-  po->x = cos(transformTobeMapped[1]) * x2 + sin(transformTobeMapped[1]) * z2
-        + transformTobeMapped[3];
-  po->y = y2 + transformTobeMapped[4];
-  po->z = -sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2
-        + transformTobeMapped[5];
+  po->x = v3.x();
+  po->y = v3.y();
+  po->z = v3.z();
   po->intensity = pi->intensity;
 }
 
 void pointAssociateTobeMapped(PointType const * const pi, PointType * const po)
 {
-  float x1 = cos(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
-           - sin(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
-  float y1 = pi->y - transformTobeMapped[4];
-  float z1 = sin(transformTobeMapped[1]) * (pi->x - transformTobeMapped[3]) 
-           + cos(transformTobeMapped[1]) * (pi->z - transformTobeMapped[5]);
+  Vector3 v0 = Vector3(*pi) - transformTobeMapped.pos;
+  Vector3 v1 = rotateY( v0, -transformTobeMapped.rot_y);
+  Vector3 v2 = rotateX( v1, -transformTobeMapped.rot_x);
+  Vector3 v3 = rotateZ( v2, -transformTobeMapped.rot_z);
 
-  float x2 = x1;
-  float y2 = cos(transformTobeMapped[0]) * y1 + sin(transformTobeMapped[0]) * z1;
-  float z2 = -sin(transformTobeMapped[0]) * y1 + cos(transformTobeMapped[0]) * z1;
-
-  po->x = cos(transformTobeMapped[2]) * x2
-        + sin(transformTobeMapped[2]) * y2;
-  po->y = -sin(transformTobeMapped[2]) * x2
-        + cos(transformTobeMapped[2]) * y2;
-  po->z = z2;
+  po->x = v3.x();
+  po->y = v3.y();
+  po->z = v3.z();
   po->intensity = pi->intensity;
 }
 
@@ -307,13 +275,13 @@ void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry)
   geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
   tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
 
-  transformSum[0] = -pitch;
-  transformSum[1] = -yaw;
-  transformSum[2] = roll;
+  transformSum.rot_x = -pitch;
+  transformSum.rot_y = -yaw;
+  transformSum.rot_z = roll;
 
-  transformSum[3] = laserOdometry->pose.pose.position.x;
-  transformSum[4] = laserOdometry->pose.pose.position.y;
-  transformSum[5] = laserOdometry->pose.pose.position.z;
+  transformSum.pos.x() = laserOdometry->pose.pose.position.x;
+  transformSum.pos.y() = laserOdometry->pose.pose.position.y;
+  transformSum.pos.z() = laserOdometry->pose.pose.position.z;
 
   newLaserOdometry = true;
 }
@@ -441,13 +409,13 @@ int main(int argc, char** argv)
         pointOnYAxis.z = 0.0;
         pointAssociateToMap(&pointOnYAxis, &pointOnYAxis);
 
-        int centerCubeI = int((transformTobeMapped[3] + 25.0) / 50.0) + laserCloudCenWidth;
-        int centerCubeJ = int((transformTobeMapped[4] + 25.0) / 50.0) + laserCloudCenHeight;
-        int centerCubeK = int((transformTobeMapped[5] + 25.0) / 50.0) + laserCloudCenDepth;
+        int centerCubeI = int((transformTobeMapped.pos.x() + 25.0) / 50.0) + laserCloudCenWidth;
+        int centerCubeJ = int((transformTobeMapped.pos.y() + 25.0) / 50.0) + laserCloudCenHeight;
+        int centerCubeK = int((transformTobeMapped.pos.z() + 25.0) / 50.0) + laserCloudCenDepth;
 
-        if (transformTobeMapped[3] + 25.0 < 0) centerCubeI--;
-        if (transformTobeMapped[4] + 25.0 < 0) centerCubeJ--;
-        if (transformTobeMapped[5] + 25.0 < 0) centerCubeK--;
+        if (transformTobeMapped.pos.x() + 25.0 < 0) centerCubeI--;
+        if (transformTobeMapped.pos.y() + 25.0 < 0) centerCubeJ--;
+        if (transformTobeMapped.pos.z() + 25.0 < 0) centerCubeK--;
 
         while (centerCubeI < 3) {
           for (int j = 0; j < laserCloudHeight; j++) {
@@ -628,20 +596,14 @@ int main(int argc, char** argv)
                 for (int ii = -1; ii <= 1; ii += 2) {
                   for (int jj = -1; jj <= 1; jj += 2) {
                     for (int kk = -1; kk <= 1; kk += 2) {
-                      float cornerX = centerX + 25.0 * ii;
-                      float cornerY = centerY + 25.0 * jj;
-                      float cornerZ = centerZ + 25.0 * kk;
+                      Vector3 corner;
+                      corner.x() = centerX + 25.0 * ii;
+                      corner.y() = centerY + 25.0 * jj;
+                      corner.z() = centerZ + 25.0 * kk;
 
-                      float squaredSide1 = (transformTobeMapped[3] - cornerX) 
-                                         * (transformTobeMapped[3] - cornerX) 
-                                         + (transformTobeMapped[4] - cornerY) 
-                                         * (transformTobeMapped[4] - cornerY)
-                                         + (transformTobeMapped[5] - cornerZ) 
-                                         * (transformTobeMapped[5] - cornerZ);
-
-                      float squaredSide2 = (pointOnYAxis.x - cornerX) * (pointOnYAxis.x - cornerX) 
-                                         + (pointOnYAxis.y - cornerY) * (pointOnYAxis.y - cornerY)
-                                         + (pointOnYAxis.z - cornerZ) * (pointOnYAxis.z - cornerZ);
+                      Vector3 point_on_axis( pointOnYAxis.x, pointOnYAxis.y, pointOnYAxis.z);
+                      float squaredSide1 = (transformTobeMapped.pos - corner).squaredNorm();
+                      float squaredSide2 = (point_on_axis - corner).squaredNorm();
 
                       float check1 = 100.0 + squaredSide1 - squaredSide2
                                    - 10.0 * sqrt(3.0) * sqrt(squaredSide1);
@@ -874,12 +836,12 @@ int main(int argc, char** argv)
               }
             }
 
-            float srx = sin(transformTobeMapped[0]);
-            float crx = cos(transformTobeMapped[0]);
-            float sry = sin(transformTobeMapped[1]);
-            float cry = cos(transformTobeMapped[1]);
-            float srz = sin(transformTobeMapped[2]);
-            float crz = cos(transformTobeMapped[2]);
+            float srx = transformTobeMapped.rot_x.sin();
+            float crx = transformTobeMapped.rot_x.cos();
+            float sry = transformTobeMapped.rot_y.sin();
+            float cry = transformTobeMapped.rot_y.cos();
+            float srz = transformTobeMapped.rot_z.sin();
+            float crz = transformTobeMapped.rot_z.cos();
 
             int laserCloudSelNum = laserCloudOri->points.size();
             if (laserCloudSelNum < 50) {
@@ -951,12 +913,12 @@ int main(int argc, char** argv)
               matX = matP * matX2;
             }
 
-            transformTobeMapped[0] += matX.at<float>(0, 0);
-            transformTobeMapped[1] += matX.at<float>(1, 0);
-            transformTobeMapped[2] += matX.at<float>(2, 0);
-            transformTobeMapped[3] += matX.at<float>(3, 0);
-            transformTobeMapped[4] += matX.at<float>(4, 0);
-            transformTobeMapped[5] += matX.at<float>(5, 0);
+            transformTobeMapped.rot_x += matX.at<float>(0, 0);
+            transformTobeMapped.rot_y += matX.at<float>(1, 0);
+            transformTobeMapped.rot_z += matX.at<float>(2, 0);
+            transformTobeMapped.pos.x() += matX.at<float>(3, 0);
+            transformTobeMapped.pos.y() += matX.at<float>(4, 0);
+            transformTobeMapped.pos.z() += matX.at<float>(5, 0);
 
             float deltaR = sqrt(
                                 pow(rad2deg(matX.at<float>(0, 0)), 2) +
@@ -1067,28 +1029,31 @@ int main(int argc, char** argv)
         pubLaserCloudFullRes.publish(laserCloudFullRes3);
 
         geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
-                                  (transformAftMapped[2], -transformAftMapped[0], -transformAftMapped[1]);
+                                  ( transformAftMapped.rot_z.value(),
+                                   -transformAftMapped.rot_x.value(),
+                                   -transformAftMapped.rot_y.value());
 
         odomAftMapped.header.stamp = ros::Time().fromSec(timeLaserOdometry);
         odomAftMapped.pose.pose.orientation.x = -geoQuat.y;
         odomAftMapped.pose.pose.orientation.y = -geoQuat.z;
         odomAftMapped.pose.pose.orientation.z = geoQuat.x;
         odomAftMapped.pose.pose.orientation.w = geoQuat.w;
-        odomAftMapped.pose.pose.position.x = transformAftMapped[3];
-        odomAftMapped.pose.pose.position.y = transformAftMapped[4];
-        odomAftMapped.pose.pose.position.z = transformAftMapped[5];
-        odomAftMapped.twist.twist.angular.x = transformBefMapped[0];
-        odomAftMapped.twist.twist.angular.y = transformBefMapped[1];
-        odomAftMapped.twist.twist.angular.z = transformBefMapped[2];
-        odomAftMapped.twist.twist.linear.x = transformBefMapped[3];
-        odomAftMapped.twist.twist.linear.y = transformBefMapped[4];
-        odomAftMapped.twist.twist.linear.z = transformBefMapped[5];
+        odomAftMapped.pose.pose.position.x = transformAftMapped.pos.x();
+        odomAftMapped.pose.pose.position.y = transformAftMapped.pos.y();
+        odomAftMapped.pose.pose.position.z = transformAftMapped.pos.z();
+        odomAftMapped.twist.twist.angular.x = transformBefMapped.rot_x.value();
+        odomAftMapped.twist.twist.angular.y = transformBefMapped.rot_y.value();
+        odomAftMapped.twist.twist.angular.z = transformBefMapped.rot_z.value();
+        odomAftMapped.twist.twist.linear.x = transformBefMapped.pos.x();
+        odomAftMapped.twist.twist.linear.y = transformBefMapped.pos.y();
+        odomAftMapped.twist.twist.linear.z = transformBefMapped.pos.z();
         pubOdomAftMapped.publish(odomAftMapped);
 
         aftMappedTrans.stamp_ = ros::Time().fromSec(timeLaserOdometry);
         aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-        aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped[3], 
-                                             transformAftMapped[4], transformAftMapped[5]));
+        aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped.pos.x(),
+                                             transformAftMapped.pos.y(),
+                                             transformAftMapped.pos.z()));
         tfBroadcaster.sendTransform(aftMappedTrans);
 
       }

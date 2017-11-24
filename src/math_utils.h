@@ -18,16 +18,14 @@ public:
     { }
 
     template<typename OtherDerived>
-    Vector3& operator=(const Eigen::MatrixBase <OtherDerived>& other)
-    {
+    Vector3& operator=(const Eigen::MatrixBase <OtherDerived>& other){
         this->Eigen::Vector4f::operator=(other);
         return *this;
     }
 
     Vector3(const pcl::PointXYZI& p):Eigen::Vector4f( p.x, p.y, p.z,0) {}
 
-    Vector3& operator=(const pcl::PointXYZI& point)
-    {
+    Vector3& operator=(const pcl::PointXYZI& point) {
         x() = point.x;
         y() = point.y;
         z() = point.z;
@@ -60,26 +58,19 @@ public:
         _cos( other._cos ),
         _sin( other._sin ) {}
 
-    void operator =( const Angle& other)
-    {
+    void operator =( const Angle& other){
         _ang = ( other._ang );
         _cos = ( other._cos );
         _sin = ( other._sin );
     }
 
-    void operator +=( const float& val)
-    {
-        _ang = ( val );
-        _cos = ( std::cos(_ang) );
-        _sin = ( std::sin(_ang) );
-    }
+    void operator +=( const float& val)   { *this = ( _ang + val) ; }
 
-    void operator +=( const Angle& other)
-    {
-        _ang = ( other._ang );
-        _cos = ( std::cos(_ang) );
-        _sin = ( std::sin(_ang) );
-    }
+    void operator +=( const Angle& other) { *this = ( _ang + other._ang ); }
+
+    void operator -=( const float& val)   { *this = ( _ang - val ); }
+
+    void operator -=( const Angle& other) { *this = ( _ang - other._ang ); }
 
     Angle operator-() const
     {
