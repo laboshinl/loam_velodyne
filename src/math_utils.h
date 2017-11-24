@@ -18,16 +18,14 @@ public:
     { }
 
     template<typename OtherDerived>
-    Vector3& operator=(const Eigen::MatrixBase <OtherDerived>& other)
-    {
+    Vector3& operator=(const Eigen::MatrixBase <OtherDerived>& other){
         this->Eigen::Vector4f::operator=(other);
         return *this;
     }
 
     Vector3(const pcl::PointXYZI& p):Eigen::Vector4f( p.x, p.y, p.z,0) {}
 
-    Vector3& operator=(const pcl::PointXYZI& point)
-    {
+    Vector3& operator=(const pcl::PointXYZI& point) {
         x() = point.x;
         y() = point.y;
         z() = point.z;
@@ -60,12 +58,20 @@ public:
         _cos( other._cos ),
         _sin( other._sin ) {}
 
-    void operator =( const Angle& other)
-    {
+    void operator =( const Angle& other){
         _ang = ( other._ang );
         _cos = ( other._cos );
         _sin = ( other._sin );
     }
+
+    void operator +=( const float& val)   { *this = ( _ang + val) ; }
+
+    void operator +=( const Angle& other) { *this = ( _ang + other._ang ); }
+
+    void operator -=( const float& val)   { *this = ( _ang - val ); }
+
+    void operator -=( const Angle& other) { *this = ( _ang - other._ang ); }
+
     Angle operator-() const
     {
         Angle out;
@@ -106,6 +112,13 @@ inline Vector3 rotateZ(const Vector3& v,const Angle& ang)
                     ang.sin() * v.x() + ang.cos() * v.y(),
                     v.z() );
 }
+
+struct Twist{
+  Angle rot_x;
+  Angle rot_y;
+  Angle rot_z;
+  Vector3 pos;
+};
 
 
 #endif // MATH_UTILS_H
