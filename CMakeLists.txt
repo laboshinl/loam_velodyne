@@ -26,6 +26,7 @@ catkin_package(
   INCLUDE_DIRS include
 )
 
+add_definitions( -march=native )
 
 add_executable(scanRegistration src/scanRegistration.cpp)
 target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
