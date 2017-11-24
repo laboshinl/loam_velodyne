@@ -12,7 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
 
 #find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
-find_package(OpenCV REQUIRED)
 
 include_directories(
   include
@@ -22,23 +21,23 @@ include_directories(
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs
-  DEPENDS EIGEN3 PCL OpenCV
+  DEPENDS EIGEN3 PCL
   INCLUDE_DIRS include
 )
 
 add_definitions( -march=native )
 
 add_executable(scanRegistration src/scanRegistration.cpp)
-target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
 
 add_executable(laserOdometry src/laserOdometry.cpp)
-target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
 
 add_executable(laserMapping src/laserMapping.cpp)
-target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
 
 add_executable(transformMaintenance src/transformMaintenance.cpp)
-target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
 
 if (CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
