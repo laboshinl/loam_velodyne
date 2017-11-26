@@ -37,7 +37,6 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
-#include <pcl/kdtree/kdtree_flann.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
@@ -46,6 +45,7 @@
 #include <tf/transform_broadcaster.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
+#include "loam_velodyne/nanoflann_pcl.h"
 #include "math_utils.h"
 
 const float scanPeriod = 0.1;
@@ -77,8 +77,9 @@ pcl::PointCloud<PointType>::Ptr laserCloudOri(new pcl::PointCloud<PointType>());
 pcl::PointCloud<PointType>::Ptr coeffSel(new pcl::PointCloud<PointType>());
 pcl::PointCloud<PointType>::Ptr laserCloudFullRes(new pcl::PointCloud<PointType>());
 pcl::PointCloud<pcl::PointXYZ>::Ptr imuTrans(new pcl::PointCloud<pcl::PointXYZ>());
-pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerLast(new pcl::KdTreeFLANN<PointType>());
-pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfLast(new pcl::KdTreeFLANN<PointType>());
+
+nanoflann::KdTreeFLANN<PointType> kdtreeCornerLast;
+nanoflann::KdTreeFLANN<PointType> kdtreeSurfLast;
 
 int laserCloudCornerLastNum;
 int laserCloudSurfLastNum;
@@ -358,9 +359,6 @@ int main(int argc, char** argv)
   laserOdometryTrans.frame_id_ = "/camera_init";
   laserOdometryTrans.child_frame_id_ = "/laser_odom";
 
-  std::vector<int> pointSearchInd;
-  std::vector<float> pointSearchSqDis;
-
   PointType pointOri, pointSel, tripod1, tripod2, tripod3, pointProj, coeff;
 
   bool isDegenerate = false;
@@ -395,9 +393,6 @@ int main(int argc, char** argv)
         surfPointsLessFlat = laserCloudSurfLast;
         laserCloudSurfLast = laserCloudTemp;
 
-        kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
-        kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
-
         sensor_msgs::PointCloud2 laserCloudCornerLast2;
         pcl::toROSMsg(*laserCloudCornerLast, laserCloudCornerLast2);
         laserCloudCornerLast2.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
@@ -413,6 +408,9 @@ int main(int argc, char** argv)
         transformSum.rot_x += imuPitchStart;
         transformSum.rot_z += imuRollStart;
 
+        kdtreeCornerLast.setInputCloud(laserCloudCornerLast);
+        kdtreeSurfLast.setInputCloud(laserCloudSurfLast);
+
         systemInited = true;
         continue;
       }
@@ -420,10 +418,15 @@ int main(int argc, char** argv)
       transform.pos -= imuVeloFromStart * scanPeriod;
 
       if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
+
+        std::vector<int> pointSearchInd(1);
+        std::vector<float> pointSearchSqDis(1);
         std::vector<int> indices;
+
         pcl::removeNaNFromPointCloud(*cornerPointsSharp,*cornerPointsSharp, indices);
         int cornerPointsSharpNum = cornerPointsSharp->points.size();
         int surfPointsFlatNum = surfPointsFlat->points.size();
+
         for (int iterCount = 0; iterCount < 25; iterCount++) {
           laserCloudOri->clear();
           coeffSel->clear();
@@ -434,7 +437,8 @@ int main(int argc, char** argv)
             if (iterCount % 5 == 0) {
               std::vector<int> indices;
               pcl::removeNaNFromPointCloud(*laserCloudCornerLast,*laserCloudCornerLast, indices);
-              kdtreeCornerLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
+              kdtreeCornerLast.nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
+
               int closestPointInd = -1, minPointInd2 = -1;
               if (pointSearchSqDis[0] < 25) {
                 closestPointInd = pointSearchInd[0];
@@ -545,7 +549,7 @@ int main(int argc, char** argv)
             TransformToStart(&surfPointsFlat->points[i], &pointSel);
 
             if (iterCount % 5 == 0) {
-              kdtreeSurfLast->nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
+              kdtreeSurfLast.nearestKSearch(pointSel, 1, pointSearchInd, pointSearchSqDis);
               int closestPointInd = -1, minPointInd2 = -1, minPointInd3 = -1;
               if (pointSearchSqDis[0] < 25) {
                 closestPointInd = pointSearchInd[0];
@@ -862,9 +866,11 @@ int main(int argc, char** argv)
 
       laserCloudCornerLastNum = laserCloudCornerLast->points.size();
       laserCloudSurfLastNum = laserCloudSurfLast->points.size();
-      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100) {
-        kdtreeCornerLast->setInputCloud(laserCloudCornerLast);
-        kdtreeSurfLast->setInputCloud(laserCloudSurfLast);
+
+      if (laserCloudCornerLastNum > 10 && laserCloudSurfLastNum > 100)
+      {
+        kdtreeCornerLast.setInputCloud(laserCloudCornerLast);
+        kdtreeSurfLast.setInputCloud(laserCloudSurfLast);
       }
 
       if (frameCount >= skipFrameNum + 1) {
