@@ -34,7 +34,6 @@
 
 #include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
-#include <opencv/cv.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -45,6 +44,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
+#include <Eigen/Eigenvalues>
+#include <Eigen/QR>
 #include "math_utils.h"
 
 const float scanPeriod = 0.1;
@@ -340,16 +341,23 @@ int main(int argc, char** argv)
 
   PointType pointOri, pointSel, pointProj, coeff;
 
-  cv::Mat matA0(5, 3, CV_32F, cv::Scalar::all(0));
-  cv::Mat matB0(5, 1, CV_32F, cv::Scalar::all(-1));
-  cv::Mat matX0(3, 1, CV_32F, cv::Scalar::all(0));
+  Eigen::Matrix<float, 5, 3> matA0;
+  Eigen::Matrix<float, 5, 1> matB0;
+  Eigen::Vector3f matX0;
+  Eigen::Matrix3f matA1;
+  Eigen::Matrix<float, 1, 3> matD1;
+  Eigen::Matrix3f matV1;
 
-  cv::Mat matA1(3, 3, CV_32F, cv::Scalar::all(0));
-  cv::Mat matD1(1, 3, CV_32F, cv::Scalar::all(0));
-  cv::Mat matV1(3, 3, CV_32F, cv::Scalar::all(0));
+  matA0.setZero();
+  matB0.setConstant(-1);
+  matX0.setZero();
+
+  matA1.setZero();
+  matD1.setZero();
+  matV1.setZero();
 
   bool isDegenerate = false;
-  cv::Mat matP(6, 6, CV_32F, cv::Scalar::all(0));
+  Eigen::Matrix<float, 6, 6> matP;
 
   pcl::VoxelGrid<PointType> downSizeFilterCorner;
   downSizeFilterCorner.setLeafSize(0.2, 0.2, 0.2);
@@ -677,66 +685,47 @@ int main(int argc, char** argv)
               kdtreeCornerFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
               
               if (pointSearchSqDis[4] < 1.0) {
-                float cx = 0;
-                float cy = 0; 
-                float cz = 0;
+                Vector3 vc(0,0,0);
+
                 for (int j = 0; j < 5; j++) {
-                  cx += laserCloudCornerFromMap->points[pointSearchInd[j]].x;
-                  cy += laserCloudCornerFromMap->points[pointSearchInd[j]].y;
-                  cz += laserCloudCornerFromMap->points[pointSearchInd[j]].z;
+                  vc.x() += laserCloudCornerFromMap->points[pointSearchInd[j]].x;
+                  vc.y() += laserCloudCornerFromMap->points[pointSearchInd[j]].y;
+                  vc.z() += laserCloudCornerFromMap->points[pointSearchInd[j]].z;
                 }
-                cx /= 5;
-                cy /= 5; 
-                cz /= 5;
+                vc /= 5.0;
 
-                float a11 = 0;
-                float a12 = 0; 
-                float a13 = 0;
-                float a22 = 0;
-                float a23 = 0; 
-                float a33 = 0;
+                Eigen::Matrix3f mat_a;
+                mat_a.setZero();
+
                 for (int j = 0; j < 5; j++) {
-                  float ax = laserCloudCornerFromMap->points[pointSearchInd[j]].x - cx;
-                  float ay = laserCloudCornerFromMap->points[pointSearchInd[j]].y - cy;
-                  float az = laserCloudCornerFromMap->points[pointSearchInd[j]].z - cz;
+                  float ax = laserCloudCornerFromMap->points[pointSearchInd[j]].x - vc.x();
+                  float ay = laserCloudCornerFromMap->points[pointSearchInd[j]].y - vc.y();
+                  float az = laserCloudCornerFromMap->points[pointSearchInd[j]].z - vc.z();
 
-                  a11 += ax * ax;
-                  a12 += ax * ay;
-                  a13 += ax * az;
-                  a22 += ay * ay;
-                  a23 += ay * az;
-                  a33 += az * az;
+                  mat_a(0,0) += ax * ax;
+                  mat_a(0,1) += ax * ay;
+                  mat_a(0,2) += ax * az;
+                  mat_a(1,1) += ay * ay;
+                  mat_a(1,2) += ay * az;
+                  mat_a(2,2) += az * az;
                 }
-                a11 /= 5;
-                a12 /= 5; 
-                a13 /= 5;
-                a22 /= 5;
-                a23 /= 5; 
-                a33 /= 5;
+                matA1 = mat_a / 5.0;
 
-                matA1.at<float>(0, 0) = a11;
-                matA1.at<float>(0, 1) = a12;
-                matA1.at<float>(0, 2) = a13;
-                matA1.at<float>(1, 0) = a12;
-                matA1.at<float>(1, 1) = a22;
-                matA1.at<float>(1, 2) = a23;
-                matA1.at<float>(2, 0) = a13;
-                matA1.at<float>(2, 1) = a23;
-                matA1.at<float>(2, 2) = a33;
+                Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> esolver(matA1);
+                matD1 = esolver.eigenvalues().real();
+                matV1 = esolver.eigenvectors().real();
 
-                cv::eigen(matA1, matD1, matV1);
-
-                if (matD1.at<float>(0, 0) > 3 * matD1.at<float>(0, 1)) {
+                if (matD1(0, 0) > 3 * matD1(0, 1)) {
 
                   float x0 = pointSel.x;
                   float y0 = pointSel.y;
                   float z0 = pointSel.z;
-                  float x1 = cx + 0.1 * matV1.at<float>(0, 0);
-                  float y1 = cy + 0.1 * matV1.at<float>(0, 1);
-                  float z1 = cz + 0.1 * matV1.at<float>(0, 2);
-                  float x2 = cx - 0.1 * matV1.at<float>(0, 0);
-                  float y2 = cy - 0.1 * matV1.at<float>(0, 1);
-                  float z2 = cz - 0.1 * matV1.at<float>(0, 2);
+                  float x1 = vc.x() + 0.1 * matV1(0, 0);
+                  float y1 = vc.y() + 0.1 * matV1(0, 1);
+                  float z1 = vc.z() + 0.1 * matV1(0, 2);
+                  float x2 = vc.x() - 0.1 * matV1(0, 0);
+                  float y2 = vc.y() - 0.1 * matV1(0, 1);
+                  float z2 = vc.z() - 0.1 * matV1(0, 2);
 
                   float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                              * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1)) 
@@ -785,17 +774,17 @@ int main(int argc, char** argv)
 
               if (pointSearchSqDis[4] < 1.0) {
                 for (int j = 0; j < 5; j++) {
-                  matA0.at<float>(j, 0) = laserCloudSurfFromMap->points[pointSearchInd[j]].x;
-                  matA0.at<float>(j, 1) = laserCloudSurfFromMap->points[pointSearchInd[j]].y;
-                  matA0.at<float>(j, 2) = laserCloudSurfFromMap->points[pointSearchInd[j]].z;
+                  matA0(j, 0) = laserCloudSurfFromMap->points[pointSearchInd[j]].x;
+                  matA0(j, 1) = laserCloudSurfFromMap->points[pointSearchInd[j]].y;
+                  matA0(j, 2) = laserCloudSurfFromMap->points[pointSearchInd[j]].z;
                 }
-                cv::solve(matA0, matB0, matX0, cv::DECOMP_QR);
+                matX0 = matA0.colPivHouseholderQr().solve(matB0);
 
-                float pa = matX0.at<float>(0, 0);
-                float pb = matX0.at<float>(1, 0);
-                float pc = matX0.at<float>(2, 0);
+                float pa = matX0(0, 0);
+                float pb = matX0(1, 0);
+                float pc = matX0(2, 0);
                 float pd = 1;
- 
+
                 float ps = sqrt(pa * pa + pb * pb + pc * pc);
                 pa /= ps;
                 pb /= ps;
@@ -848,12 +837,13 @@ int main(int argc, char** argv)
               continue;
             }
 
-            cv::Mat matA(laserCloudSelNum, 6, CV_32F, cv::Scalar::all(0));
-            cv::Mat matAt(6, laserCloudSelNum, CV_32F, cv::Scalar::all(0));
-            cv::Mat matAtA(6, 6, CV_32F, cv::Scalar::all(0));
-            cv::Mat matB(laserCloudSelNum, 1, CV_32F, cv::Scalar::all(0));
-            cv::Mat matAtB(6, 1, CV_32F, cv::Scalar::all(0));
-            cv::Mat matX(6, 1, CV_32F, cv::Scalar::all(0));
+            Eigen::Matrix<float,Eigen::Dynamic,6> matA(laserCloudSelNum, 6);
+            Eigen::Matrix<float,6, Eigen::Dynamic> matAt(6, laserCloudSelNum);
+            Eigen::Matrix<float,6, 6> matAtA;
+            Eigen::VectorXf matB(laserCloudSelNum);
+            Eigen::VectorXf matAtB;
+            Eigen::VectorXf matX
+                ;
             for (int i = 0; i < laserCloudSelNum; i++) {
               pointOri = laserCloudOri->points[i];
               coeff = coeffSel->points[i];
@@ -871,63 +861,65 @@ int main(int argc, char** argv)
                         + (crx*crz*pointOri.x - crx*srz*pointOri.y) * coeff.y
                         + ((sry*srz + cry*crz*srx)*pointOri.x + (crz*sry-cry*srx*srz)*pointOri.y)*coeff.z;
 
-              matA.at<float>(i, 0) = arx;
-              matA.at<float>(i, 1) = ary;
-              matA.at<float>(i, 2) = arz;
-              matA.at<float>(i, 3) = coeff.x;
-              matA.at<float>(i, 4) = coeff.y;
-              matA.at<float>(i, 5) = coeff.z;
-              matB.at<float>(i, 0) = -coeff.intensity;
+              matA(i, 0) = arx;
+              matA(i, 1) = ary;
+              matA(i, 2) = arz;
+              matA(i, 3) = coeff.x;
+              matA(i, 4) = coeff.y;
+              matA(i, 5) = coeff.z;
+              matB(i, 0) = -coeff.intensity;
             }
-            cv::transpose(matA, matAt);
+            matAt = matA.transpose();
             matAtA = matAt * matA;
             matAtB = matAt * matB;
-            cv::solve(matAtA, matAtB, matX, cv::DECOMP_QR);
+            matX = matAtA.colPivHouseholderQr().solve(matAtB);
 
             if (iterCount == 0) {
-              cv::Mat matE(1, 6, CV_32F, cv::Scalar::all(0));
-              cv::Mat matV(6, 6, CV_32F, cv::Scalar::all(0));
-              cv::Mat matV2(6, 6, CV_32F, cv::Scalar::all(0));
+              Eigen::Matrix<float,1, 6> matE;
+              Eigen::Matrix<float,6, 6> matV;
+              Eigen::Matrix<float,6, 6> matV2;
 
-              cv::eigen(matAtA, matE, matV);
-              matV.copyTo(matV2);
+              Eigen::SelfAdjointEigenSolver< Eigen::Matrix<float,6, 6> > esolver(matAtA);
+              matE = esolver.eigenvalues().real();
+              matV = esolver.eigenvectors().real();
+
+              matV2 = matV;
 
               isDegenerate = false;
               float eignThre[6] = {100, 100, 100, 100, 100, 100};
               for (int i = 5; i >= 0; i--) {
-                if (matE.at<float>(0, i) < eignThre[i]) {
+                if (matE(0, i) < eignThre[i]) {
                   for (int j = 0; j < 6; j++) {
-                    matV2.at<float>(i, j) = 0;
+                    matV2(i, j) = 0;
                   }
                   isDegenerate = true;
                 } else {
                   break;
                 }
               }
-              matP = matV.inv() * matV2;
+              matP = matV.inverse() * matV2;
             }
 
             if (isDegenerate) {
-              cv::Mat matX2(6, 1, CV_32F, cv::Scalar::all(0));
-              matX.copyTo(matX2);
+              Eigen::Matrix<float,6, 1> matX2(matX);
               matX = matP * matX2;
             }
 
-            transformTobeMapped.rot_x += matX.at<float>(0, 0);
-            transformTobeMapped.rot_y += matX.at<float>(1, 0);
-            transformTobeMapped.rot_z += matX.at<float>(2, 0);
-            transformTobeMapped.pos.x() += matX.at<float>(3, 0);
-            transformTobeMapped.pos.y() += matX.at<float>(4, 0);
-            transformTobeMapped.pos.z() += matX.at<float>(5, 0);
+            transformTobeMapped.rot_x += matX(0, 0);
+            transformTobeMapped.rot_y += matX(1, 0);
+            transformTobeMapped.rot_z += matX(2, 0);
+            transformTobeMapped.pos.x() += matX(3, 0);
+            transformTobeMapped.pos.y() += matX(4, 0);
+            transformTobeMapped.pos.z() += matX(5, 0);
 
             float deltaR = sqrt(
-                                pow(rad2deg(matX.at<float>(0, 0)), 2) +
-                                pow(rad2deg(matX.at<float>(1, 0)), 2) +
-                                pow(rad2deg(matX.at<float>(2, 0)), 2));
+                                pow(rad2deg(matX(0, 0)), 2) +
+                                pow(rad2deg(matX(1, 0)), 2) +
+                                pow(rad2deg(matX(2, 0)), 2));
             float deltaT = sqrt(
-                                pow(matX.at<float>(3, 0) * 100, 2) +
-                                pow(matX.at<float>(4, 0) * 100, 2) +
-                                pow(matX.at<float>(5, 0) * 100, 2));
+                                pow(matX(3, 0) * 100, 2) +
+                                pow(matX(4, 0) * 100, 2) +
+                                pow(matX(5, 0) * 100, 2));
 
             if (deltaR < 0.05 && deltaT < 0.05) {
               break;

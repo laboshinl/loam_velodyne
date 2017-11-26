@@ -34,7 +34,6 @@
 
 #include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
-#include <opencv/cv.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
