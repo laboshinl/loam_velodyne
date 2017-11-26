@@ -32,13 +32,10 @@
 
 #include <math.h>
 
-#include <loam_velodyne/common.h>
+#include "loam_velodyne/common.h"
 #include <nav_msgs/Odometry.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
-#include <pcl/kdtree/kdtree_flann.h>
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -46,6 +43,7 @@
 #include <tf/transform_broadcaster.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
+#include "loam_velodyne/nanoflann_pcl.h"
 #include "math_utils.h"
 
 const float scanPeriod = 0.1;
@@ -91,9 +89,6 @@ pcl::PointCloud<PointType>::Ptr laserCloudCornerArray[laserCloudNum];
 pcl::PointCloud<PointType>::Ptr laserCloudSurfArray[laserCloudNum];
 pcl::PointCloud<PointType>::Ptr laserCloudCornerArray2[laserCloudNum];
 pcl::PointCloud<PointType>::Ptr laserCloudSurfArray2[laserCloudNum];
-
-pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerFromMap(new pcl::KdTreeFLANN<PointType>());
-pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap(new pcl::KdTreeFLANN<PointType>());
 
 Twist transformSum;
 Twist transformIncre;
@@ -671,9 +666,16 @@ int main(int argc, char** argv)
         laserCloudCornerStack2->clear();
         laserCloudSurfStack2->clear();
 
-        if (laserCloudCornerFromMapNum > 10 && laserCloudSurfFromMapNum > 100) {
-          kdtreeCornerFromMap->setInputCloud(laserCloudCornerFromMap);
-          kdtreeSurfFromMap->setInputCloud(laserCloudSurfFromMap);
+        if (laserCloudCornerFromMapNum > 10 && laserCloudSurfFromMapNum > 100) {    
+
+         nanoflann::KdTreeFLANN<PointType> kdtreeCornerFromMap;
+         nanoflann::KdTreeFLANN<PointType> kdtreeSurfFromMap;
+
+         kdtreeCornerFromMap.setInputCloud(laserCloudCornerFromMap);
+         kdtreeSurfFromMap.setInputCloud(laserCloudSurfFromMap);
+
+          pointSearchInd.resize(5);
+          pointSearchSqDis.resize(5);
 
           for (int iterCount = 0; iterCount < 10; iterCount++) {
             laserCloudOri->clear();
@@ -682,7 +684,7 @@ int main(int argc, char** argv)
             for (int i = 0; i < laserCloudCornerStackNum; i++) {
               pointOri = laserCloudCornerStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel);
-              kdtreeCornerFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
+              kdtreeCornerFromMap.nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis );
               
               if (pointSearchSqDis[4] < 1.0) {
                 Vector3 vc(0,0,0);
@@ -770,7 +772,7 @@ int main(int argc, char** argv)
             for (int i = 0; i < laserCloudSurfStackNum; i++) {
               pointOri = laserCloudSurfStack->points[i];
               pointAssociateToMap(&pointOri, &pointSel); 
-              kdtreeSurfFromMap->nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis);
+              kdtreeSurfFromMap.nearestKSearch(pointSel, 5, pointSearchInd, pointSearchSqDis );
 
               if (pointSearchSqDis[4] < 1.0) {
                 for (int j = 0; j < 5; j++) {
