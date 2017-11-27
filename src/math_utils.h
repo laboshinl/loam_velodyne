@@ -17,13 +17,20 @@ public:
         : Eigen::Vector4f(other)
     { }
 
+    Vector3(const pcl::PointXYZI& p):Eigen::Vector4f( p.x, p.y, p.z,0) {}
+
     template<typename OtherDerived>
     Vector3& operator=(const Eigen::MatrixBase <OtherDerived>& other){
         this->Eigen::Vector4f::operator=(other);
         return *this;
     }
 
-    Vector3(const pcl::PointXYZI& p):Eigen::Vector4f( p.x, p.y, p.z,0) {}
+    Vector3& operator=(const pcl::PointXYZ& other){
+       x() = other.x;
+       y() = other.y;
+       z() = other.z;
+       return *this;
+    }
 
     Vector3& operator=(const pcl::PointXYZI& point) {
         x() = point.x;
