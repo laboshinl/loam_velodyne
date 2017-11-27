@@ -36,12 +36,117 @@
 
 typedef pcl::PointXYZI PointType;
 
+
+
+/**
+ * Convert the given radian angle to degrees.
+ *
+ * @param radians The radian angle to convert.
+ * @return The angle in degrees.
+ */
 inline double rad2deg(double radians)
 {
   return radians * 180.0 / M_PI;
 }
 
+
+
+/**
+ * Convert the given radian angle to degrees.
+ *
+ * @param radians The radian angle to convert.
+ * @return The angle in degrees.
+ */
+inline float rad2deg(float radians)
+{
+  return (float) (radians * 180.0 / M_PI);
+}
+
+
+
+/**
+ * Convert the given degree angle to radian.
+ *
+ * @param degrees The degree angle to convert.
+ * @return The radian angle.
+ */
 inline double deg2rad(double degrees)
 {
   return degrees * M_PI / 180.0;
+}
+
+
+
+/**
+ * Convert the given degree angle to radian.
+ *
+ * @param degrees The degree angle to convert.
+ * @return The radian angle.
+ */
+inline float deg2rad(float degrees)
+{
+  return (float) (degrees * M_PI / 180.0);
+}
+
+
+
+
+/**
+ * Calculate the squared difference of the given two points.
+ *
+ * @param a The first point.
+ * @param b The second point.
+ * @return The squared difference between point a and b.
+ */
+inline float calcSquaredDiff(const PointType& a, const PointType& b)
+{
+  float diffX = a.x - b.x;
+  float diffY = a.y - b.y;
+  float diffZ = a.z - b.z;
+
+  return diffX * diffX + diffY * diffY + diffZ * diffZ;
+}
+
+
+
+/**
+ * Calculate the squared difference of the given two points.
+ *
+ * @param a The first point.
+ * @param b The second point.
+ * @param wb The weighting factor for the SECOND point.
+ * @return The squared difference between point a and b.
+ */
+inline float calcSquaredDiff(const PointType& a, const PointType& b, const float& wb)
+{
+  float diffX = a.x - b.x * wb;
+  float diffY = a.y - b.y * wb;
+  float diffZ = a.z - b.z * wb;
+
+  return diffX * diffX + diffY * diffY + diffZ * diffZ;
+}
+
+
+/**
+ * Calculate the absolute distance of the point to the origin.
+ *
+ * @param p The point.
+ * @return The distance to the point.
+ */
+inline float calcPointDistance(const PointType& p)
+{
+  return std::sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+}
+
+
+
+/**
+ * Calculate the squared distance of the point to the origin.
+ *
+ * @param p The point.
+ * @return The squared distance to the point.
+ */
+inline float calcSquaredPointDistance(const PointType& p)
+{
+  return p.x * p.x + p.y * p.y + p.z * p.z;
 }

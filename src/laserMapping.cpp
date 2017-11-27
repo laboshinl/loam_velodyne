@@ -595,18 +595,19 @@ int main(int argc, char** argv)
                 float centerY = 50.0 * (j - laserCloudCenHeight);
                 float centerZ = 50.0 * (k - laserCloudCenDepth);
 
+                PointType transform_pos = (pcl::PointXYZI)transformTobeMapped.pos;
+
                 bool isInLaserFOV = false;
                 for (int ii = -1; ii <= 1; ii += 2) {
                   for (int jj = -1; jj <= 1; jj += 2) {
                     for (int kk = -1; kk <= 1; kk += 2) {
-                      Vector3 corner;
-                      corner.x() = centerX + 25.0 * ii;
-                      corner.y() = centerY + 25.0 * jj;
-                      corner.z() = centerZ + 25.0 * kk;
+                      PointType corner;
+                      corner.x = centerX + 25.0 * ii;
+                      corner.y = centerY + 25.0 * jj;
+                      corner.z = centerZ + 25.0 * kk;
 
-                      Vector3 point_on_axis( pointOnYAxis.x, pointOnYAxis.y, pointOnYAxis.z);
-                      float squaredSide1 = (transformTobeMapped.pos - corner).squaredNorm();
-                      float squaredSide2 = (point_on_axis - corner).squaredNorm();
+                      float squaredSide1 = calcSquaredDiff(transform_pos, corner);
+                      float squaredSide2 = calcSquaredDiff(pointOnYAxis, corner);
 
                       float check1 = 100.0 + squaredSide1 - squaredSide2
                                    - 10.0 * sqrt(3.0) * sqrt(squaredSide1);

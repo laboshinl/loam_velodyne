@@ -305,13 +305,8 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
   imuYawLast = imuTrans->points[1].y;
   imuRollLast = imuTrans->points[1].z;
 
-  imuShiftFromStart.x() = imuTrans->points[2].x;
-  imuShiftFromStart.y() = imuTrans->points[2].y;
-  imuShiftFromStart.z() = imuTrans->points[2].z;
-
-  imuVeloFromStart.x() = imuTrans->points[3].x;
-  imuVeloFromStart.y() = imuTrans->points[3].y;
-  imuVeloFromStart.z() = imuTrans->points[3].z;
+  imuShiftFromStart = imuTrans->points[2];
+  imuVeloFromStart = imuTrans->points[3];
 
   newImuTrans = true;
 }
@@ -450,12 +445,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
-                               (laserCloudCornerLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudCornerLast->points[j], pointSel);
 
                   if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -469,12 +459,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
-                               (laserCloudCornerLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudCornerLast->points[j], pointSel);
 
                   if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -561,12 +546,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
-                               (laserCloudSurfLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudSurfLast->points[j], pointSel);
 
                   if (int(laserCloudSurfLast->points[j].intensity) <= closestPointScan) {
                      if (pointSqDis < minPointSqDis2) {
@@ -585,12 +565,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
-                               (laserCloudSurfLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudSurfLast->points[j], pointSel);
 
                   if (int(laserCloudSurfLast->points[j].intensity) >= closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -856,13 +831,8 @@ int main(int argc, char** argv)
         }
       }
 
-      pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
-      cornerPointsLessSharp = laserCloudCornerLast;
-      laserCloudCornerLast = laserCloudTemp;
-
-      laserCloudTemp = surfPointsLessFlat;
-      surfPointsLessFlat = laserCloudSurfLast;
-      laserCloudSurfLast = laserCloudTemp;
+      std::swap(cornerPointsLessSharp, laserCloudCornerLast);
+      std::swap(surfPointsLessFlat, laserCloudSurfLast);
 
       laserCloudCornerLastNum = laserCloudCornerLast->points.size();
       laserCloudSurfLastNum = laserCloudSurfLast->points.size();

@@ -17,13 +17,20 @@ public:
         : Eigen::Vector4f(other)
     { }
 
+    Vector3(const pcl::PointXYZI& p):Eigen::Vector4f( p.x, p.y, p.z,0) {}
+
     template<typename OtherDerived>
     Vector3& operator=(const Eigen::MatrixBase <OtherDerived>& other){
         this->Eigen::Vector4f::operator=(other);
         return *this;
     }
 
-    Vector3(const pcl::PointXYZI& p):Eigen::Vector4f( p.x, p.y, p.z,0) {}
+    Vector3& operator=(const pcl::PointXYZ& other){
+       x() = other.x;
+       y() = other.y;
+       z() = other.z;
+       return *this;
+    }
 
     Vector3& operator=(const pcl::PointXYZI& point) {
         x() = point.x;
@@ -39,6 +46,18 @@ public:
     float& x() { return (*this)(0); }
     float& y() { return (*this)(1); }
     float& z() { return (*this)(2); }
+
+    // easy conversion
+    operator pcl::PointXYZI()
+    {
+      pcl::PointXYZI dst;
+      dst.x = x();
+      dst.y = y();
+      dst.z = z();
+      dst.intensity = 0;
+      return dst;
+    }
+
 };
 
 class Angle{
@@ -91,7 +110,6 @@ private:
     float _ang, _cos, _sin;
 };
 
-
 inline Vector3 rotateX(const Vector3& v,const Angle& ang)
 {
     return Vector3( v.x(),
@@ -119,6 +137,7 @@ struct Twist{
   Angle rot_z;
   Vector3 pos;
 };
+
 
 
 #endif // MATH_UTILS_H
