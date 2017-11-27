@@ -450,12 +450,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
-                               (laserCloudCornerLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudCornerLast->points[j], pointSel);
 
                   if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -469,12 +464,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
-                               (laserCloudCornerLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudCornerLast->points[j], pointSel);
 
                   if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -561,12 +551,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
-                               (laserCloudSurfLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudSurfLast->points[j], pointSel);
 
                   if (int(laserCloudSurfLast->points[j].intensity) <= closestPointScan) {
                      if (pointSqDis < minPointSqDis2) {
@@ -585,12 +570,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
-                               (laserCloudSurfLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudSurfLast->points[j], pointSel);
 
                   if (int(laserCloudSurfLast->points[j].intensity) >= closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
