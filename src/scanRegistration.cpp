@@ -66,6 +66,9 @@ int MAX_CORNER_LESS_SHARP;
 /** The maximum number of flat surface points per feature region. */
 int MAX_SURFACE_FLAT = 4;
 
+/** The voxel size used for down sizing the remaining less flat surface points. */
+float LESS_FLAT_FILTER_SIZE = 0.2;
+
 /** The curvature threshold below / above which a point is considered a flat / corner point. */
 float SURFACE_CURVATURE_THRESHOLD = 0.1;
 
@@ -510,7 +513,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     pcl::PointCloud<PointType> surfPointsLessFlatScanDS;
     pcl::VoxelGrid<PointType> downSizeFilter;
     downSizeFilter.setInputCloud(surfPointsLessFlatScan);
-    downSizeFilter.setLeafSize(0.2, 0.2, 0.2);
+    downSizeFilter.setLeafSize(LESS_FLAT_FILTER_SIZE, LESS_FLAT_FILTER_SIZE, LESS_FLAT_FILTER_SIZE);
     downSizeFilter.filter(surfPointsLessFlatScanDS);
 
     surfPointsLessFlat += surfPointsLessFlatScanDS;
@@ -635,6 +638,12 @@ int main(int argc, char** argv)
     ros::shutdown();
   }
 
+  LESS_FLAT_FILTER_SIZE = nh.param("/scanRegistration/lessFlatFilterSize", LESS_FLAT_FILTER_SIZE);
+  if (LESS_FLAT_FILTER_SIZE < 0.001) {
+    ROS_FATAL("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", LESS_FLAT_FILTER_SIZE);
+    ros::shutdown();
+  }
+
 
   ROS_INFO("Using  %d  feature regions per scan.", N_FEATURE_REGIONS);
   ROS_INFO("Using  +/- %d  points for curvature calculation.", CURVATURE_REGION);
@@ -642,6 +651,7 @@ int main(int argc, char** argv)
            MAX_CORNER_SHARP, MAX_CORNER_LESS_SHARP);
   ROS_INFO("Using at most  %d  flat surface points per feature region.", MAX_SURFACE_FLAT);
   ROS_INFO("Using  %g  as surface curvature threshold.", SURFACE_CURVATURE_THRESHOLD);
+  ROS_INFO("Using  %g  as less flat surface points voxel filter size.", LESS_FLAT_FILTER_SIZE);
 
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
