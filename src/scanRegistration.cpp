@@ -57,6 +57,15 @@ int N_FEATURE_REGIONS = 6;
 /** The number of surrounding points (+/- region around a point) used to calculate a point curvature. */
 int CURVATURE_REGION = 5;
 
+/** The maximum number of sharp corner points per feature region. */
+int MAX_CORNER_SHARP = 2;
+
+/** The maximum number of less sharp corner points per feature region. */
+int MAX_CORNER_LESS_SHARP;
+
+/** The maximum number of flat surface points per feature region. */
+int MAX_SURFACE_FLAT = 4;
+
 const int systemDelay = 20;
 int systemInitCount = 0;
 bool systemInited = false;
@@ -401,13 +410,13 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         int ind = cloudSortInd[k];
         if (cloudNeighborPicked[ind] == 0 &&
             cloudCurvature[ind] > 0.1) {
-        
+
           largestPickedNum++;
-          if (largestPickedNum <= 2) {
+          if (largestPickedNum <= MAX_CORNER_SHARP) {
             cloudLabel[ind] = 2;
             cornerPointsSharp.push_back(laserCloud->points[ind]);
             cornerPointsLessSharp.push_back(laserCloud->points[ind]);
-          } else if (largestPickedNum <= 20) {
+          } else if (largestPickedNum <= MAX_CORNER_LESS_SHARP) {
             cloudLabel[ind] = 1;
             cornerPointsLessSharp.push_back(laserCloud->points[ind]);
           } else {
@@ -454,7 +463,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
           surfPointsFlat.push_back(laserCloud->points[ind]);
 
           smallestPickedNum++;
-          if (smallestPickedNum >= 4) {
+          if (smallestPickedNum >= MAX_SURFACE_FLAT) {
             break;
           }
 
@@ -587,13 +596,42 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
 
-  int intParam = nh.param("/scanRegistration/featureRegions", N_FEATURE_REGIONS);
-  N_FEATURE_REGIONS = intParam < 1 ? 1 : intParam;
+  N_FEATURE_REGIONS = nh.param("/scanRegistration/featureRegions", N_FEATURE_REGIONS);
+  if (N_FEATURE_REGIONS < 1) {
+    ROS_FATAL("Invalid featureRegions parameter: %d (expected >= 1)", N_FEATURE_REGIONS);
+    ros::shutdown();
+  }
   ROS_INFO("Using  %d  feature regions per scan.", N_FEATURE_REGIONS);
 
-  intParam = nh.param("/scanRegistration/curvatureRegion", CURVATURE_REGION);
-  CURVATURE_REGION = intParam < 1 ? 1 : intParam;
+  CURVATURE_REGION = nh.param("/scanRegistration/curvatureRegion", CURVATURE_REGION);
+  if (CURVATURE_REGION < 1) {
+    ROS_FATAL("Invalid curvatureRegion parameter: %d (expected >= 1)", CURVATURE_REGION);
+    ros::shutdown();
+  }
   ROS_INFO("Using  +/- %d  points for curvature calculation.", CURVATURE_REGION);
+
+
+  MAX_CORNER_SHARP = nh.param("/scanRegistration/maxCornerSharp", MAX_CORNER_SHARP);
+  if (MAX_CORNER_SHARP < 1) {
+    ROS_FATAL("Invalid maxCornerSharp parameter: %d (expected >= 1)", MAX_CORNER_SHARP);
+    ros::shutdown();
+  }
+  ROS_INFO("Using at most  %d  sharp corner points per feature region.", MAX_CORNER_SHARP);
+
+  MAX_CORNER_LESS_SHARP = nh.param("/scanRegistration/maxCornerLessSharp", 10 * MAX_CORNER_SHARP);
+  if (MAX_CORNER_LESS_SHARP < MAX_CORNER_SHARP) {
+    ROS_FATAL("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", MAX_CORNER_LESS_SHARP, MAX_CORNER_SHARP);
+    ros::shutdown();
+  }
+  ROS_INFO("Using at most  %d  less sharp corner points per feature region.", MAX_CORNER_LESS_SHARP);
+
+
+  MAX_SURFACE_FLAT = nh.param("/scanRegistration/maxSurfaceFlat", MAX_SURFACE_FLAT);
+  if (MAX_SURFACE_FLAT < 1) {
+    ROS_FATAL("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", MAX_SURFACE_FLAT);
+    ros::shutdown();
+  }
+  ROS_INFO("Using at most  %d  flat surface points per feature region.", MAX_SURFACE_FLAT);
 
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
