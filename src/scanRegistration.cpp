@@ -49,6 +49,15 @@ using std::sin;
 using std::cos;
 using std::atan2;
 
+/** Point label options. */
+enum PointLabel {
+    CORNER_SHARP = 2,       ///< sharp corner point
+    CORNER_LESS_SHARP = 1,  ///< less sharp corner point
+    SURFACE_LESS_FLAT = 0,  ///< less flat surface point
+    SURFACE_FLAT = -1       ///< flat surface point
+};
+
+
 const double scanPeriod = 0.1;
 
 /** The number of (equally sized) regions used to distribute the feature extraction within a scan. */
@@ -81,7 +90,7 @@ const int N_SCANS = 16;
 float cloudCurvature[40000];
 int cloudSortInd[40000];
 int cloudNeighborPicked[40000];
-int cloudLabel[40000];
+PointLabel cloudLabel[40000];
 
 int imuPointerFront = 0;
 int imuPointerLast = -1;
@@ -322,7 +331,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     cloudCurvature[i] = diffX * diffX + diffY * diffY + diffZ * diffZ;
     cloudSortInd[i] = i;
     cloudNeighborPicked[i] = 0;
-    cloudLabel[i] = 0;
+    cloudLabel[i] = SURFACE_LESS_FLAT;
 
     if (int(laserCloud->points[i].intensity) != scanCount) {
       scanCount = int(laserCloud->points[i].intensity);
@@ -419,11 +428,11 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 
           largestPickedNum++;
           if (largestPickedNum <= MAX_CORNER_SHARP) {
-            cloudLabel[ind] = 2;
+            cloudLabel[ind] = CORNER_SHARP;
             cornerPointsSharp.push_back(laserCloud->points[ind]);
             cornerPointsLessSharp.push_back(laserCloud->points[ind]);
           } else if (largestPickedNum <= MAX_CORNER_LESS_SHARP) {
-            cloudLabel[ind] = 1;
+            cloudLabel[ind] = CORNER_LESS_SHARP;
             cornerPointsLessSharp.push_back(laserCloud->points[ind]);
           } else {
             break;
@@ -465,7 +474,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         if (cloudNeighborPicked[ind] == 0 &&
             cloudCurvature[ind] < SURFACE_CURVATURE_THRESHOLD) {
 
-          cloudLabel[ind] = -1;
+          cloudLabel[ind] = SURFACE_FLAT;
           surfPointsFlat.push_back(laserCloud->points[ind]);
 
           smallestPickedNum++;
@@ -504,7 +513,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
       }
 
       for (int k = sp; k <= ep; k++) {
-        if (cloudLabel[k] <= 0) {
+        if (cloudLabel[k] <= SURFACE_LESS_FLAT) {
           surfPointsLessFlatScan->push_back(laserCloud->points[k]);
         }
       }
