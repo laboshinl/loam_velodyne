@@ -84,14 +84,19 @@ nanoflann::KdTreeFLANN<PointType> kdtreeSurfLast;
 int laserCloudCornerLastNum;
 int laserCloudSurfLastNum;
 
-int pointSelCornerInd[40000];
-float pointSearchCornerInd1[40000];
-float pointSearchCornerInd2[40000];
+// int pointSelCornerInd[40000];
+// float pointSearchCornerInd1[40000];
+// float pointSearchCornerInd2[40000];
+float pointSearchCornerInd1[80000];
+float pointSearchCornerInd2[80000];
 
-int pointSelSurfInd[40000];
-float pointSearchSurfInd1[40000];
-float pointSearchSurfInd2[40000];
-float pointSearchSurfInd3[40000];
+// int pointSelSurfInd[40000];
+// float pointSearchSurfInd1[40000];
+// float pointSearchSurfInd2[40000];
+// float pointSearchSurfInd3[40000];
+float pointSearchSurfInd1[80000];
+float pointSearchSurfInd2[80000];
+float pointSearchSurfInd3[80000];
 
 Twist transform;
 Twist transformSum;
