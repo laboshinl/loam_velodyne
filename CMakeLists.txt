@@ -10,25 +10,29 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   tf)
 
-#find_package(Eigen3 REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 
 include_directories(
   include
 	${catkin_INCLUDE_DIRS} 
-#	${EIGEN3_INCLUDE_DIR}
+	#${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
 
 catkin_package(
   CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs
   DEPENDS EIGEN3 PCL
   INCLUDE_DIRS include
+  LIBRARIES loam
 )
 
 add_definitions( -march=native )
 
-add_executable(scanRegistration src/scanRegistration.cpp)
-target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
+
+add_subdirectory(src/lib)
+
+add_executable(scanRegistration src/velodyne_scan_registration_node.cpp)
+target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
 add_executable(laserOdometry src/laserOdometry.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} )

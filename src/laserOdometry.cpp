@@ -30,8 +30,11 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include <cmath>
 
+#include "loam_velodyne/nanoflann_pcl.h"
+#include "lib/math_utils.h"
+
+#include <cmath>
 #include <loam_velodyne/common.h>
 #include <nav_msgs/Odometry.h>
 #include <pcl/point_cloud.h>
@@ -45,8 +48,8 @@
 #include <tf/transform_broadcaster.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
-#include "loam_velodyne/nanoflann_pcl.h"
-#include "math_utils.h"
+
+using namespace loam;
 
 const float scanPeriod = 0.1;
 
@@ -106,51 +109,38 @@ void TransformToStart(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
-  Angle rx = s * transform.rot_x.value();
-  Angle ry = s * transform.rot_y.value();
-  Angle rz = s * transform.rot_z.value();
-
-  Vector3 v0( Vector3(*pi) -s * transform.pos );
-  Vector3 v1 = rotateZ( v0, -rz );
-  Vector3 v2 = rotateX( v1, -rx );
-  Vector3 v3 = rotateY( v2, -ry );
-
-  po->x = v3.x();
-  po->y = v3.y();
-  po->z = v3.z();
+  po->x = pi->x - s * transform.pos.x();
+  po->y = pi->y - s * transform.pos.y();
+  po->z = pi->z - s * transform.pos.z();
   po->intensity = pi->intensity;
+
+  Angle rx = s * transform.rot_x.rad();
+  Angle ry = s * transform.rot_y.rad();
+  Angle rz = s * transform.rot_z.rad();
+  rotateZXY(*po, -rz, -rx, -ry);
 }
 
 void TransformToEnd(PointType const * const pi, PointType * const po)
 {
   float s = 10 * (pi->intensity - int(pi->intensity));
 
-  Angle rx = s * transform.rot_x.value();
-  Angle ry = s * transform.rot_y.value();
-  Angle rz = s * transform.rot_z.value();
-
-  Vector3 v0( Vector3(*pi) -s * transform.pos );
-  Vector3 v1 = rotateZ( v0, -rz );
-  Vector3 v2 = rotateX( v1, -rx );
-  Vector3 v3 = rotateY( v2, -ry );
-
-  Vector3 v4 = rotateY( v3, transform.rot_y );
-  Vector3 v5 = rotateX( v4, transform.rot_x );
-  Vector3 v6 = rotateZ( v5, transform.rot_z );
-  v6 += transform.pos - imuShiftFromStart;
-
-  Vector3 v7 = rotateZ( v6, imuRollStart );
-  Vector3 v8 = rotateX( v7, imuPitchStart );
-  Vector3 v9 = rotateY( v8, imuYawStart );
-
-  Vector3 v10 = rotateY( v9,  -imuYawLast );
-  Vector3 v11 = rotateX( v10, -imuPitchLast );
-  Vector3 v12 = rotateZ( v11, -imuRollLast );
-
-  po->x = v12.x();
-  po->y = v12.y();
-  po->z = v12.z();
+  po->x = pi->x - s * transform.pos.x();
+  po->y = pi->y - s * transform.pos.y();
+  po->z = pi->z - s * transform.pos.z();
   po->intensity = int(pi->intensity);
+
+  Angle rx = s * transform.rot_x.rad();
+  Angle ry = s * transform.rot_y.rad();
+  Angle rz = s * transform.rot_z.rad();
+  rotateZXY(*po, -rz, -rx, -ry);
+  rotateYXZ(*po, transform.rot_y, transform.rot_x, transform.rot_z);
+
+  po->x += transform.pos.x() - imuShiftFromStart.x();
+  po->y += transform.pos.y() - imuShiftFromStart.y();
+  po->z += transform.pos.z() - imuShiftFromStart.z();
+
+  rotateZXY(*po, imuRollStart, imuPitchStart, imuYawStart);
+  rotateYXZ(*po, -imuYawLast, -imuPitchLast, -imuRollLast);
 }
 
 void PluginIMURotation(const Angle& bcx, const Angle& bcy, const Angle& bcz,
@@ -305,13 +295,8 @@ void imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTrans2)
   imuYawLast = imuTrans->points[1].y;
   imuRollLast = imuTrans->points[1].z;
 
-  imuShiftFromStart.x() = imuTrans->points[2].x;
-  imuShiftFromStart.y() = imuTrans->points[2].y;
-  imuShiftFromStart.z() = imuTrans->points[2].z;
-
-  imuVeloFromStart.x() = imuTrans->points[3].x;
-  imuVeloFromStart.y() = imuTrans->points[3].y;
-  imuVeloFromStart.z() = imuTrans->points[3].z;
+  imuShiftFromStart = imuTrans->points[2];
+  imuVeloFromStart = imuTrans->points[3];
 
   newImuTrans = true;
 }
@@ -385,13 +370,8 @@ int main(int argc, char** argv)
       newImuTrans = false;
 
       if (!systemInited) {
-        pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
-        cornerPointsLessSharp = laserCloudCornerLast;
-        laserCloudCornerLast = laserCloudTemp;
-
-        laserCloudTemp = surfPointsLessFlat;
-        surfPointsLessFlat = laserCloudSurfLast;
-        laserCloudSurfLast = laserCloudTemp;
+        std::swap(cornerPointsLessSharp, laserCloudCornerLast);
+        std::swap(surfPointsLessFlat, laserCloudSurfLast);
 
         sensor_msgs::PointCloud2 laserCloudCornerLast2;
         pcl::toROSMsg(*laserCloudCornerLast, laserCloudCornerLast2);
@@ -450,12 +430,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
-                               (laserCloudCornerLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudCornerLast->points[j], pointSel);
 
                   if (int(laserCloudCornerLast->points[j].intensity) > closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -469,12 +444,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudCornerLast->points[j].x - pointSel.x) * 
-                               (laserCloudCornerLast->points[j].x - pointSel.x) + 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) * 
-                               (laserCloudCornerLast->points[j].y - pointSel.y) + 
-                               (laserCloudCornerLast->points[j].z - pointSel.z) * 
-                               (laserCloudCornerLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudCornerLast->points[j], pointSel);
 
                   if (int(laserCloudCornerLast->points[j].intensity) < closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -561,12 +531,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
-                               (laserCloudSurfLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudSurfLast->points[j], pointSel);
 
                   if (int(laserCloudSurfLast->points[j].intensity) <= closestPointScan) {
                      if (pointSqDis < minPointSqDis2) {
@@ -585,12 +550,7 @@ int main(int argc, char** argv)
                     break;
                   }
 
-                  pointSqDis = (laserCloudSurfLast->points[j].x - pointSel.x) * 
-                               (laserCloudSurfLast->points[j].x - pointSel.x) + 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) * 
-                               (laserCloudSurfLast->points[j].y - pointSel.y) + 
-                               (laserCloudSurfLast->points[j].z - pointSel.z) * 
-                               (laserCloudSurfLast->points[j].z - pointSel.z);
+                  pointSqDis = calcSquaredDiff(laserCloudSurfLast->points[j], pointSel);
 
                   if (int(laserCloudSurfLast->points[j].intensity) >= closestPointScan) {
                     if (pointSqDis < minPointSqDis2) {
@@ -673,12 +633,12 @@ int main(int argc, char** argv)
 
             float s = 1;
 
-            float srx = sin(s * transform.rot_x.value());
-            float crx = cos(s * transform.rot_x.value());
-            float sry = sin(s * transform.rot_y.value());
-            float cry = cos(s * transform.rot_y.value());
-            float srz = sin(s * transform.rot_z.value());
-            float crz = cos(s * transform.rot_z.value());
+            float srx = sin(s * transform.rot_x.rad());
+            float crx = cos(s * transform.rot_x.rad());
+            float sry = sin(s * transform.rot_y.rad());
+            float cry = cos(s * transform.rot_y.rad());
+            float srz = sin(s * transform.rot_z.rad());
+            float crz = cos(s * transform.rot_z.rad());
             float tx = s * transform.pos.x();
             float ty = s * transform.pos.y();
             float tz = s * transform.pos.z();
@@ -762,16 +722,16 @@ int main(int argc, char** argv)
             matX = matP * matX2;
           }
 
-          transform.rot_x = transform.rot_x.value() + matX(0, 0);
-          transform.rot_y = transform.rot_y.value() + matX(1, 0);
-          transform.rot_z = transform.rot_z.value() + matX(2, 0);
+          transform.rot_x = transform.rot_x.rad() + matX(0, 0);
+          transform.rot_y = transform.rot_y.rad() + matX(1, 0);
+          transform.rot_z = transform.rot_z.rad() + matX(2, 0);
           transform.pos.x() += matX(3, 0);
           transform.pos.y() += matX(4, 0);
           transform.pos.z() += matX(5, 0);
 
-          if( isnan(transform.rot_x.value()) ) transform.rot_x = Angle();
-          if( isnan(transform.rot_y.value()) ) transform.rot_y = Angle();
-          if( isnan(transform.rot_z.value()) ) transform.rot_z = Angle();
+          if( isnan(transform.rot_x.rad()) ) transform.rot_x = Angle();
+          if( isnan(transform.rot_y.rad()) ) transform.rot_y = Angle();
+          if( isnan(transform.rot_z.rad()) ) transform.rot_z = Angle();
 
           if( isnan(transform.pos.x()) ) transform.pos.x() = 0.0;
           if( isnan(transform.pos.y()) ) transform.pos.y() = 0.0;
@@ -798,18 +758,15 @@ int main(int argc, char** argv)
                          transformSum.rot_y,
                          transformSum.rot_z,
                          -transform.rot_x,
-                         -transform.rot_y.value() * 1.05,
+                         -transform.rot_y.rad() * 1.05,
                          -transform.rot_z,
                          rx, ry, rz);
 
-      Vector3 v0( transform.pos.x()      - imuShiftFromStart.x(),
-                  transform.pos.y()      - imuShiftFromStart.y(),
-                  transform.pos.z()*1.05 - imuShiftFromStart.z() );
-
-      Vector3 v1 = rotateZ( v0, rz );
-      Vector3 v2 = rotateX( v1, rx );
-      Vector3 v3 = rotateY( v2, ry );
-      Vector3 trans = transformSum.pos - v3;
+      Vector3 v( transform.pos.x()      - imuShiftFromStart.x(),
+                 transform.pos.y()      - imuShiftFromStart.y(),
+                 transform.pos.z()*1.05 - imuShiftFromStart.z() );
+      rotateZXY(v, rz, rx, ry);
+      Vector3 trans = transformSum.pos - v;
 
       PluginIMURotation(rx, ry, rz,
                         imuPitchStart, imuYawStart, imuRollStart,
@@ -821,7 +778,7 @@ int main(int argc, char** argv)
       transformSum.rot_z = rz;
       transformSum.pos = trans;
 
-      geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz.value(), -rx.value(), -ry.value());
+      geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(rz.rad(), -rx.rad(), -ry.rad());
 
       laserOdometry.header.stamp = ros::Time().fromSec(timeSurfPointsLessFlat);
       laserOdometry.pose.pose.orientation.x = -geoQuat.y;
@@ -856,13 +813,8 @@ int main(int argc, char** argv)
         }
       }
 
-      pcl::PointCloud<PointType>::Ptr laserCloudTemp = cornerPointsLessSharp;
-      cornerPointsLessSharp = laserCloudCornerLast;
-      laserCloudCornerLast = laserCloudTemp;
-
-      laserCloudTemp = surfPointsLessFlat;
-      surfPointsLessFlat = laserCloudSurfLast;
-      laserCloudSurfLast = laserCloudTemp;
+      std::swap(cornerPointsLessSharp, laserCloudCornerLast);
+      std::swap(surfPointsLessFlat, laserCloudSurfLast);
 
       laserCloudCornerLastNum = laserCloudCornerLast->points.size();
       laserCloudSurfLastNum = laserCloudSurfLast->points.size();

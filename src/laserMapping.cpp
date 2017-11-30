@@ -44,7 +44,9 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 #include "loam_velodyne/nanoflann_pcl.h"
-#include "math_utils.h"
+#include "lib/math_utils.h"
+
+using namespace loam;
 
 const float scanPeriod = 0.1;
 
@@ -106,10 +108,8 @@ float imuPitch[imuQueLength] = {0};
 
 void transformAssociateToMap()
 {
-  Vector3 v0 = transformBefMapped.pos -  transformSum.pos;
-  Vector3 v1 = rotateY( v0, -(transformSum.rot_y) );
-  Vector3 v2 = rotateX( v1, -(transformSum.rot_x) );
-  transformIncre.pos = rotateZ( v2, -(transformSum.rot_z) );
+  transformIncre.pos = transformBefMapped.pos - transformSum.pos;
+  rotateYXZ(transformIncre.pos, -(transformSum.rot_y), -(transformSum.rot_x), -(transformSum.rot_z));
 
   float sbcx = transformSum.rot_x.sin();
   float cbcx = transformSum.rot_x.cos();
@@ -167,11 +167,9 @@ void transformAssociateToMap()
   transformTobeMapped.rot_z = atan2(srzcrx / transformTobeMapped.rot_x.cos(),
                                  crzcrx / transformTobeMapped.rot_x.cos());
 
-  Vector3 v3;
-  v1 = rotateZ( transformIncre.pos,  transformTobeMapped.rot_z);
-  v2 = rotateX( v1,  transformTobeMapped.rot_x);
-  v3 = rotateY( v2,  transformTobeMapped.rot_y);
-  transformTobeMapped.pos = transformAftMapped.pos - v3;
+  Vector3 v = transformIncre.pos;
+  rotateZXY(v, transformTobeMapped.rot_z, transformTobeMapped.rot_x, transformTobeMapped.rot_y);
+  transformTobeMapped.pos = transformAftMapped.pos - v;
 }
 
 void transformUpdate()
@@ -199,8 +197,8 @@ void transformUpdate()
       imuPitchLast = imuPitch[imuPointerFront] * ratioFront + imuPitch[imuPointerBack] * ratioBack;
     }
 
-    transformTobeMapped.rot_x = 0.998 * transformTobeMapped.rot_x.value() + 0.002 * imuPitchLast;
-    transformTobeMapped.rot_z = 0.998 * transformTobeMapped.rot_z.value() + 0.002 * imuRollLast;
+    transformTobeMapped.rot_x = 0.998 * transformTobeMapped.rot_x.rad() + 0.002 * imuPitchLast;
+    transformTobeMapped.rot_z = 0.998 * transformTobeMapped.rot_z.rad() + 0.002 * imuRollLast;
   }
 
   transformBefMapped = transformSum;
@@ -209,28 +207,26 @@ void transformUpdate()
 
 void pointAssociateToMap(PointType const * const pi, PointType * const po)
 {
-  Vector3 v1 = rotateZ( *pi, transformTobeMapped.rot_z);
-  Vector3 v2 = rotateX(  v1, transformTobeMapped.rot_x);
-  Vector3 v3 = rotateY(  v2, transformTobeMapped.rot_y);
-  v3 += transformTobeMapped.pos;
-
-  po->x = v3.x();
-  po->y = v3.y();
-  po->z = v3.z();
+  po->x = pi->x;
+  po->y = pi->y;
+  po->z = pi->z;
   po->intensity = pi->intensity;
+
+  rotateZXY(*po, transformTobeMapped.rot_z, transformTobeMapped.rot_x, transformTobeMapped.rot_y);
+
+  po->x += transformTobeMapped.pos.x();
+  po->y += transformTobeMapped.pos.y();
+  po->z += transformTobeMapped.pos.z();
 }
 
 void pointAssociateTobeMapped(PointType const * const pi, PointType * const po)
 {
-  Vector3 v0 = Vector3(*pi) - transformTobeMapped.pos;
-  Vector3 v1 = rotateY( v0, -transformTobeMapped.rot_y);
-  Vector3 v2 = rotateX( v1, -transformTobeMapped.rot_x);
-  Vector3 v3 = rotateZ( v2, -transformTobeMapped.rot_z);
-
-  po->x = v3.x();
-  po->y = v3.y();
-  po->z = v3.z();
+  po->x = pi->x - transformTobeMapped.pos.x();
+  po->y = pi->y - transformTobeMapped.pos.y();
+  po->z = pi->z - transformTobeMapped.pos.z();
   po->intensity = pi->intensity;
+
+  rotateYXZ(*po, -transformTobeMapped.rot_y, -transformTobeMapped.rot_x, -transformTobeMapped.rot_z);
 }
 
 void laserCloudCornerLastHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudCornerLast2)
@@ -595,18 +591,19 @@ int main(int argc, char** argv)
                 float centerY = 50.0 * (j - laserCloudCenHeight);
                 float centerZ = 50.0 * (k - laserCloudCenDepth);
 
+                PointType transform_pos = (pcl::PointXYZI) transformTobeMapped.pos;
+
                 bool isInLaserFOV = false;
                 for (int ii = -1; ii <= 1; ii += 2) {
                   for (int jj = -1; jj <= 1; jj += 2) {
                     for (int kk = -1; kk <= 1; kk += 2) {
-                      Vector3 corner;
-                      corner.x() = centerX + 25.0 * ii;
-                      corner.y() = centerY + 25.0 * jj;
-                      corner.z() = centerZ + 25.0 * kk;
+                      PointType corner;
+                      corner.x = centerX + 25.0 * ii;
+                      corner.y = centerY + 25.0 * jj;
+                      corner.z = centerZ + 25.0 * kk;
 
-                      Vector3 point_on_axis( pointOnYAxis.x, pointOnYAxis.y, pointOnYAxis.z);
-                      float squaredSide1 = (transformTobeMapped.pos - corner).squaredNorm();
-                      float squaredSide2 = (point_on_axis - corner).squaredNorm();
+                      float squaredSide1 = calcSquaredDiff(transform_pos, corner);
+                      float squaredSide2 = calcSquaredDiff(pointOnYAxis, corner);
 
                       float check1 = 100.0 + squaredSide1 - squaredSide2
                                    - 10.0 * sqrt(3.0) * sqrt(squaredSide1);
@@ -1023,9 +1020,9 @@ int main(int argc, char** argv)
         pubLaserCloudFullRes.publish(laserCloudFullRes3);
 
         geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
-                                  ( transformAftMapped.rot_z.value(),
-                                   -transformAftMapped.rot_x.value(),
-                                   -transformAftMapped.rot_y.value());
+                                  ( transformAftMapped.rot_z.rad(),
+                                   -transformAftMapped.rot_x.rad(),
+                                   -transformAftMapped.rot_y.rad());
 
         odomAftMapped.header.stamp = ros::Time().fromSec(timeLaserOdometry);
         odomAftMapped.pose.pose.orientation.x = -geoQuat.y;
@@ -1035,9 +1032,9 @@ int main(int argc, char** argv)
         odomAftMapped.pose.pose.position.x = transformAftMapped.pos.x();
         odomAftMapped.pose.pose.position.y = transformAftMapped.pos.y();
         odomAftMapped.pose.pose.position.z = transformAftMapped.pos.z();
-        odomAftMapped.twist.twist.angular.x = transformBefMapped.rot_x.value();
-        odomAftMapped.twist.twist.angular.y = transformBefMapped.rot_y.value();
-        odomAftMapped.twist.twist.angular.z = transformBefMapped.rot_z.value();
+        odomAftMapped.twist.twist.angular.x = transformBefMapped.rot_x.rad();
+        odomAftMapped.twist.twist.angular.y = transformBefMapped.rot_y.rad();
+        odomAftMapped.twist.twist.angular.z = transformBefMapped.rot_z.rad();
         odomAftMapped.twist.twist.linear.x = transformBefMapped.pos.x();
         odomAftMapped.twist.twist.linear.y = transformBefMapped.pos.y();
         odomAftMapped.twist.twist.linear.z = transformBefMapped.pos.z();

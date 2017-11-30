@@ -30,6 +30,51 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include <pcl/point_types.h>
+#ifndef LOAM_VELODYNESCANREGISTRATION_H
+#define LOAM_VELODYNESCANREGISTRATION_H
 
-typedef pcl::PointXYZI PointType;
+
+#include "ScanRegistration.h"
+
+
+namespace loam {
+
+class VelodyneScanRegistration : virtual public ScanRegistration {
+public:
+  VelodyneScanRegistration(const float& scanPeriod,
+                           const uint16_t& nScans,
+                           const size_t& imuHistorySize = 200,
+                           const RegistrationParams& config = RegistrationParams());
+
+
+  /** \brief Setup component in active mode.
+   *
+   * @param node the ROS node handle
+   * @param privateNode the private ROS node handle
+   */
+  bool setup(ros::NodeHandle& node,
+             ros::NodeHandle& privateNode);
+
+  /** \brief Process a new input cloud message.
+   *
+   * @param laserCloudMsg the new input cloud message to process
+   */
+  void processCloudMessage(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg);
+
+  /** \brief Process a new input cloud.
+   *
+   * @param laserCloudIn the new input cloud to process
+   * @param scanTime the scan (message) timestamp
+   */
+  void process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
+               const ros::Time& scanTime);
+
+protected:
+  int _systemDelay;                 ///< system startup delay counter
+  ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber
+};
+
+} // end namespace loam
+
+
+#endif //LOAM_VELODYNESCANREGISTRATION_H
