@@ -246,7 +246,7 @@ typedef struct IMUState {
 
 
 
-/** \brief Base class for scan registration implementations.
+/** \brief Base class for LOAM scan registration implementations.
  *
  * As there exist various sensor devices, producing differently formatted point clouds,
  * specific implementations are needed for each group of sensor devices to achieve an accurate registration.

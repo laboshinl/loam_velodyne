@@ -4,5 +4,7 @@ add_library(loam
             ScanRegistration.h
             ScanRegistration.cpp
             VelodyneScanRegistration.h
-            VelodyneScanRegistration.cpp)
+            VelodyneScanRegistration.cpp
+            LaserOdometry.h
+            LaserOdometry.cpp)
 target_link_libraries(loam ${catkin_LIBRARIES} ${PCL_LIBRARIES})

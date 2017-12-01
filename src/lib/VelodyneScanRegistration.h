@@ -39,6 +39,9 @@
 
 namespace loam {
 
+/** \brief Class for registering Velodyne VLP-16 scans.
+ *
+ */
 class VelodyneScanRegistration : virtual public ScanRegistration {
 public:
   VelodyneScanRegistration(const float& scanPeriod,

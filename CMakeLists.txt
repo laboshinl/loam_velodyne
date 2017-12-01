@@ -34,8 +34,8 @@ add_subdirectory(src/lib)
 add_executable(scanRegistration src/velodyne_scan_registration_node.cpp)
 target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
-add_executable(laserOdometry src/laserOdometry.cpp)
-target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
+add_executable(laserOdometry src/laser_odometry_node.cpp)
+target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
 add_executable(laserMapping src/laserMapping.cpp)
 target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
