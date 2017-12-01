@@ -49,7 +49,37 @@ using std::sin;
 using std::cos;
 using std::atan2;
 
+/** Point label options. */
+enum PointLabel {
+    CORNER_SHARP = 2,       ///< sharp corner point
+    CORNER_LESS_SHARP = 1,  ///< less sharp corner point
+    SURFACE_LESS_FLAT = 0,  ///< less flat surface point
+    SURFACE_FLAT = -1       ///< flat surface point
+};
+
+
 const double scanPeriod = 0.1;
+
+/** The number of (equally sized) regions used to distribute the feature extraction within a scan. */
+int N_FEATURE_REGIONS = 6;
+
+/** The number of surrounding points (+/- region around a point) used to calculate a point curvature. */
+int CURVATURE_REGION = 5;
+
+/** The maximum number of sharp corner points per feature region. */
+int MAX_CORNER_SHARP = 2;
+
+/** The maximum number of less sharp corner points per feature region. */
+int MAX_CORNER_LESS_SHARP;
+
+/** The maximum number of flat surface points per feature region. */
+int MAX_SURFACE_FLAT = 4;
+
+/** The voxel size used for down sizing the remaining less flat surface points. */
+float LESS_FLAT_FILTER_SIZE = 0.2;
+
+/** The curvature threshold below / above which a point is considered a flat / corner point. */
+float SURFACE_CURVATURE_THRESHOLD = 0.1;
 
 const int systemDelay = 20;
 int systemInitCount = 0;
@@ -60,7 +90,7 @@ const int N_SCANS = 16;
 float cloudCurvature[40000];
 int cloudSortInd[40000];
 int cloudNeighborPicked[40000];
-int cloudLabel[40000];
+PointLabel cloudLabel[40000];
 
 int imuPointerFront = 0;
 int imuPointerLast = -1;
@@ -284,44 +314,38 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
   for (int i = 0; i < N_SCANS; i++) {
     *laserCloud += laserCloudScans[i];
   }
+
   int scanCount = -1;
-  for (int i = 5; i < cloudSize - 5; i++) {
-    float diffX = laserCloud->points[i - 5].x + laserCloud->points[i - 4].x 
-                + laserCloud->points[i - 3].x + laserCloud->points[i - 2].x 
-                + laserCloud->points[i - 1].x - 10 * laserCloud->points[i].x 
-                + laserCloud->points[i + 1].x + laserCloud->points[i + 2].x
-                + laserCloud->points[i + 3].x + laserCloud->points[i + 4].x
-                + laserCloud->points[i + 5].x;
-    float diffY = laserCloud->points[i - 5].y + laserCloud->points[i - 4].y 
-                + laserCloud->points[i - 3].y + laserCloud->points[i - 2].y 
-                + laserCloud->points[i - 1].y - 10 * laserCloud->points[i].y 
-                + laserCloud->points[i + 1].y + laserCloud->points[i + 2].y
-                + laserCloud->points[i + 3].y + laserCloud->points[i + 4].y
-                + laserCloud->points[i + 5].y;
-    float diffZ = laserCloud->points[i - 5].z + laserCloud->points[i - 4].z 
-                + laserCloud->points[i - 3].z + laserCloud->points[i - 2].z 
-                + laserCloud->points[i - 1].z - 10 * laserCloud->points[i].z 
-                + laserCloud->points[i + 1].z + laserCloud->points[i + 2].z
-                + laserCloud->points[i + 3].z + laserCloud->points[i + 4].z
-                + laserCloud->points[i + 5].z;
+  float pointWeight = -2 * CURVATURE_REGION;
+  for (int i = CURVATURE_REGION; i < cloudSize - CURVATURE_REGION; i++) {
+    float diffX = pointWeight * laserCloud->points[i].x;
+    float diffY = pointWeight * laserCloud->points[i].y;
+    float diffZ = pointWeight * laserCloud->points[i].z;
+
+    for (int j = 1; j <= CURVATURE_REGION; j++) {
+      diffX += laserCloud->points[i + j].x + laserCloud->points[i - j].x;
+      diffY += laserCloud->points[i + j].y + laserCloud->points[i - j].y;
+      diffZ += laserCloud->points[i + j].z + laserCloud->points[i - j].z;
+    }
+
     cloudCurvature[i] = diffX * diffX + diffY * diffY + diffZ * diffZ;
     cloudSortInd[i] = i;
     cloudNeighborPicked[i] = 0;
-    cloudLabel[i] = 0;
+    cloudLabel[i] = SURFACE_LESS_FLAT;
 
     if (int(laserCloud->points[i].intensity) != scanCount) {
       scanCount = int(laserCloud->points[i].intensity);
 
       if (scanCount > 0 && scanCount < N_SCANS) {
-        scanStartInd[scanCount] = i + 5;
-        scanEndInd[scanCount - 1] = i - 5;
+        scanStartInd[scanCount] = i + CURVATURE_REGION;
+        scanEndInd[scanCount - 1] = i - CURVATURE_REGION;
       }
     }
   }
-  scanStartInd[0] = 5;
-  scanEndInd.back() = cloudSize - 5;
+  scanStartInd[0] = CURVATURE_REGION;
+  scanEndInd.back() = cloudSize - CURVATURE_REGION;
 
-  for (int i = 5; i < cloudSize - 6; i++) {
+  for (int i = CURVATURE_REGION; i < cloudSize - CURVATURE_REGION - 1; i++) {
     float diffX = laserCloud->points[i + 1].x - laserCloud->points[i].x;
     float diffY = laserCloud->points[i + 1].y - laserCloud->points[i].y;
     float diffZ = laserCloud->points[i + 1].z - laserCloud->points[i].z;
@@ -343,12 +367,9 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         diffZ = laserCloud->points[i + 1].z - laserCloud->points[i].z * depth2 / depth1;
 
         if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth2 < 0.1) {
-          cloudNeighborPicked[i - 5] = 1;
-          cloudNeighborPicked[i - 4] = 1;
-          cloudNeighborPicked[i - 3] = 1;
-          cloudNeighborPicked[i - 2] = 1;
-          cloudNeighborPicked[i - 1] = 1;
-          cloudNeighborPicked[i] = 1;
+          for (int j = 0; j <= CURVATURE_REGION; j++) {
+            cloudNeighborPicked[i - j] = 1;
+          }
         }
       } else {
         diffX = laserCloud->points[i + 1].x * depth1 / depth2 - laserCloud->points[i].x;
@@ -356,12 +377,9 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
         diffZ = laserCloud->points[i + 1].z * depth1 / depth2 - laserCloud->points[i].z;
 
         if (sqrt(diffX * diffX + diffY * diffY + diffZ * diffZ) / depth1 < 0.1) {
-          cloudNeighborPicked[i + 1] = 1;
-          cloudNeighborPicked[i + 2] = 1;
-          cloudNeighborPicked[i + 3] = 1;
-          cloudNeighborPicked[i + 4] = 1;
-          cloudNeighborPicked[i + 5] = 1;
-          cloudNeighborPicked[i + 6] = 1;
+          for (int j = CURVATURE_REGION + 1; j > 0 ; j--) {
+            cloudNeighborPicked[i + j] = 1;
+          }
         }
       }
     }
@@ -388,9 +406,9 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 
   for (int i = 0; i < N_SCANS; i++) {
     pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<PointType>);
-    for (int j = 0; j < 6; j++) {
-      int sp = (scanStartInd[i] * (6 - j)  + scanEndInd[i] * j) / 6;
-      int ep = (scanStartInd[i] * (5 - j)  + scanEndInd[i] * (j + 1)) / 6 - 1;
+    for (int j = 0; j < N_FEATURE_REGIONS; j++) {
+      int sp = (scanStartInd[i] * (N_FEATURE_REGIONS - j)  + scanEndInd[i] * j) / N_FEATURE_REGIONS;
+      int ep = (scanStartInd[i] * (N_FEATURE_REGIONS - 1 - j)  + scanEndInd[i] * (j + 1)) / N_FEATURE_REGIONS - 1;
 
       for (int k = sp + 1; k <= ep; k++) {
         for (int l = k; l >= sp + 1; l--) {
@@ -406,22 +424,22 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
       for (int k = ep; k >= sp; k--) {
         int ind = cloudSortInd[k];
         if (cloudNeighborPicked[ind] == 0 &&
-            cloudCurvature[ind] > 0.1) {
-        
+            cloudCurvature[ind] > SURFACE_CURVATURE_THRESHOLD) {
+
           largestPickedNum++;
-          if (largestPickedNum <= 2) {
-            cloudLabel[ind] = 2;
+          if (largestPickedNum <= MAX_CORNER_SHARP) {
+            cloudLabel[ind] = CORNER_SHARP;
             cornerPointsSharp.push_back(laserCloud->points[ind]);
             cornerPointsLessSharp.push_back(laserCloud->points[ind]);
-          } else if (largestPickedNum <= 20) {
-            cloudLabel[ind] = 1;
+          } else if (largestPickedNum <= MAX_CORNER_LESS_SHARP) {
+            cloudLabel[ind] = CORNER_LESS_SHARP;
             cornerPointsLessSharp.push_back(laserCloud->points[ind]);
           } else {
             break;
           }
 
           cloudNeighborPicked[ind] = 1;
-          for (int l = 1; l <= 5; l++) {
+          for (int l = 1; l <= CURVATURE_REGION; l++) {
             float diffX = laserCloud->points[ind + l].x 
                         - laserCloud->points[ind + l - 1].x;
             float diffY = laserCloud->points[ind + l].y 
@@ -434,7 +452,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 
             cloudNeighborPicked[ind + l] = 1;
           }
-          for (int l = -1; l >= -5; l--) {
+          for (int l = -1; l >= -CURVATURE_REGION; l--) {
             float diffX = laserCloud->points[ind + l].x 
                         - laserCloud->points[ind + l + 1].x;
             float diffY = laserCloud->points[ind + l].y 
@@ -454,18 +472,18 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
       for (int k = sp; k <= ep; k++) {
         int ind = cloudSortInd[k];
         if (cloudNeighborPicked[ind] == 0 &&
-            cloudCurvature[ind] < 0.1) {
+            cloudCurvature[ind] < SURFACE_CURVATURE_THRESHOLD) {
 
-          cloudLabel[ind] = -1;
+          cloudLabel[ind] = SURFACE_FLAT;
           surfPointsFlat.push_back(laserCloud->points[ind]);
 
           smallestPickedNum++;
-          if (smallestPickedNum >= 4) {
+          if (smallestPickedNum >= MAX_SURFACE_FLAT) {
             break;
           }
 
           cloudNeighborPicked[ind] = 1;
-          for (int l = 1; l <= 5; l++) {
+          for (int l = 1; l <= CURVATURE_REGION; l++) {
             float diffX = laserCloud->points[ind + l].x 
                         - laserCloud->points[ind + l - 1].x;
             float diffY = laserCloud->points[ind + l].y 
@@ -478,7 +496,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
 
             cloudNeighborPicked[ind + l] = 1;
           }
-          for (int l = -1; l >= -5; l--) {
+          for (int l = -1; l >= -CURVATURE_REGION; l--) {
             float diffX = laserCloud->points[ind + l].x 
                         - laserCloud->points[ind + l + 1].x;
             float diffY = laserCloud->points[ind + l].y 
@@ -495,7 +513,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
       }
 
       for (int k = sp; k <= ep; k++) {
-        if (cloudLabel[k] <= 0) {
+        if (cloudLabel[k] <= SURFACE_LESS_FLAT) {
           surfPointsLessFlatScan->push_back(laserCloud->points[k]);
         }
       }
@@ -504,7 +522,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
     pcl::PointCloud<PointType> surfPointsLessFlatScanDS;
     pcl::VoxelGrid<PointType> downSizeFilter;
     downSizeFilter.setInputCloud(surfPointsLessFlatScan);
-    downSizeFilter.setLeafSize(0.2, 0.2, 0.2);
+    downSizeFilter.setLeafSize(LESS_FLAT_FILTER_SIZE, LESS_FLAT_FILTER_SIZE, LESS_FLAT_FILTER_SIZE);
     downSizeFilter.filter(surfPointsLessFlatScanDS);
 
     surfPointsLessFlat += surfPointsLessFlatScanDS;
@@ -591,6 +609,59 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "scanRegistration");
   ros::NodeHandle nh;
+
+
+  N_FEATURE_REGIONS = nh.param("/scanRegistration/featureRegions", N_FEATURE_REGIONS);
+  if (N_FEATURE_REGIONS < 1) {
+    ROS_FATAL("Invalid featureRegions parameter: %d (expected >= 1)", N_FEATURE_REGIONS);
+    ros::shutdown();
+  }
+
+  CURVATURE_REGION = nh.param("/scanRegistration/curvatureRegion", CURVATURE_REGION);
+  if (CURVATURE_REGION < 1) {
+    ROS_FATAL("Invalid curvatureRegion parameter: %d (expected >= 1)", CURVATURE_REGION);
+    ros::shutdown();
+  }
+
+  MAX_CORNER_SHARP = nh.param("/scanRegistration/maxCornerSharp", MAX_CORNER_SHARP);
+  if (MAX_CORNER_SHARP < 1) {
+    ROS_FATAL("Invalid maxCornerSharp parameter: %d (expected >= 1)", MAX_CORNER_SHARP);
+    ros::shutdown();
+  }
+
+  MAX_CORNER_LESS_SHARP = nh.param("/scanRegistration/maxCornerLessSharp", 10 * MAX_CORNER_SHARP);
+  if (MAX_CORNER_LESS_SHARP < MAX_CORNER_SHARP) {
+    ROS_FATAL("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", MAX_CORNER_LESS_SHARP, MAX_CORNER_SHARP);
+    ros::shutdown();
+  }
+
+  MAX_SURFACE_FLAT = nh.param("/scanRegistration/maxSurfaceFlat", MAX_SURFACE_FLAT);
+  if (MAX_SURFACE_FLAT < 1) {
+    ROS_FATAL("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", MAX_SURFACE_FLAT);
+    ros::shutdown();
+  }
+
+  SURFACE_CURVATURE_THRESHOLD = nh.param("/scanRegistration/surfaceCurvatureThreshold", SURFACE_CURVATURE_THRESHOLD);
+  if (SURFACE_CURVATURE_THRESHOLD < 0.001) {
+    ROS_FATAL("Invalid surfaceCurvatureThreshold parameter: %f (expected >= 0.001)", SURFACE_CURVATURE_THRESHOLD);
+    ros::shutdown();
+  }
+
+  LESS_FLAT_FILTER_SIZE = nh.param("/scanRegistration/lessFlatFilterSize", LESS_FLAT_FILTER_SIZE);
+  if (LESS_FLAT_FILTER_SIZE < 0.001) {
+    ROS_FATAL("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", LESS_FLAT_FILTER_SIZE);
+    ros::shutdown();
+  }
+
+
+  ROS_INFO("Using  %d  feature regions per scan.", N_FEATURE_REGIONS);
+  ROS_INFO("Using  +/- %d  points for curvature calculation.", CURVATURE_REGION);
+  ROS_INFO("Using at most  %d  sharp  and  %d  less sharp corner points per feature region.",
+           MAX_CORNER_SHARP, MAX_CORNER_LESS_SHARP);
+  ROS_INFO("Using at most  %d  flat surface points per feature region.", MAX_SURFACE_FLAT);
+  ROS_INFO("Using  %g  as surface curvature threshold.", SURFACE_CURVATURE_THRESHOLD);
+  ROS_INFO("Using  %g  as less flat surface points voxel filter size.", LESS_FLAT_FILTER_SIZE);
+
 
   ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2> 
                                   ("/velodyne_points", 2, laserCloudHandler);
