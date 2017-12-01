@@ -147,9 +147,9 @@ void TransformToStartIMU(PointType *p)
   Vector3 v2 = rotateX( v1, imuPitchCur);
   Vector3 v3 = rotateY( v2, imuYawCur);
 
-  Vector3 v4 = rotateY( v2, -imuYawStart);
-  Vector3 v5 = rotateX( v1, -imuPitchStart);
-  Vector3 v6 = rotateZ( *p, -imuRollStart);
+  Vector3 v4 = rotateY( v3, -imuYawStart);
+  Vector3 v5 = rotateX( v4, -imuPitchStart);
+  Vector3 v6 = rotateZ( v5, -imuRollStart);
 
   v6 += imuShiftFromStartCur;
 
