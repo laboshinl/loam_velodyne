@@ -40,8 +40,8 @@ target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 add_executable(laserMapping src/laserMapping.cpp)
 target_link_libraries(laserMapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
 
-add_executable(transformMaintenance src/transformMaintenance.cpp)
-target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} )
+add_executable(transformMaintenance src/transform_maintenance_node.cpp)
+target_link_libraries(transformMaintenance ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
 if (CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
