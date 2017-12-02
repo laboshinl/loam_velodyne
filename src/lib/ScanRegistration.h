@@ -254,24 +254,18 @@ typedef struct IMUState {
  */
 class ScanRegistration {
 public:
-  ScanRegistration(const float& scanPeriod,
-                   const uint16_t& nScans = 0,
-                   const size_t& imuHistorySize = 200,
-                   const RegistrationParams& config = RegistrationParams());
+  explicit ScanRegistration(const float& scanPeriod,
+                            const uint16_t& nScans = 0,
+                            const size_t& imuHistorySize = 200,
+                            const RegistrationParams& config = RegistrationParams());
 
-  /** \brief Setup component in active mode.
+  /** \brief Setup component.
    *
    * @param node the ROS node handle
    * @param privateNode the private ROS node handle
    */
   virtual bool setup(ros::NodeHandle& node,
                      ros::NodeHandle& privateNode);
-
-  /** \brief Setup component in passive mode.
-   *
-   * @param config the scan registration configuration parameters
-   */
-  virtual bool setup(const RegistrationParams& config);
 
   /** \brief Handler method for IMU messages.
    *
@@ -392,8 +386,6 @@ protected:
   std::vector<PointLabel> _regionLabel;     ///< point label buffer
   std::vector<size_t> _regionSortIndices;   ///< sorted region indices based on point curvature
   std::vector<int> _scanNeighborPicked;     ///< flag if neighboring point was already picked
-
-  bool _activeMode;   ///< active or passive mode (in active mode, results are published via ros topics, in passive mode not)
 
   ros::Subscriber _subImu;    ///< IMU message subscriber
 

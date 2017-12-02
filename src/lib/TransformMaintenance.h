@@ -47,7 +47,7 @@ class TransformMaintenance {
 public:
   TransformMaintenance();
 
-  /** \brief Setup component in active mode.
+  /** \brief Setup component.
    *
    * @param node the ROS node handle
    * @param privateNode the private ROS node handle
@@ -87,8 +87,6 @@ private:
 
   ros::Subscriber _subLaserOdometry;    ///< (high frequency) laser odometry subscriber
   ros::Subscriber _subOdomAftMapped;    ///< (low frequency) mapping odometry subscriber
-
-  bool _activeMode;   ///< active or passive mode (in active mode, results are published via ros topics, in passive mode not)
 };
 
 } // end namespace loam

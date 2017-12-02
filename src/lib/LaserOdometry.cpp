@@ -104,9 +104,6 @@ bool LaserOdometry::setup(ros::NodeHandle &node,
   _subImuTrans = node.subscribe<sensor_msgs::PointCloud2>
       ("/imu_trans", 5, &LaserOdometry::imuTransHandler, this);
 
-  // set active mode
-  _activeMode = true;
-
   return true;
 }
 
@@ -344,10 +341,6 @@ void LaserOdometry::imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuT
 
 void LaserOdometry::spin()
 {
-  if (!_activeMode) {
-    return;
-  }
-
   ros::Rate rate(100);
   bool status = ros::ok();
 
@@ -819,9 +812,7 @@ void LaserOdometry::process()
   _laserOdometry.pose.pose.position.x = trans.x();
   _laserOdometry.pose.pose.position.y = trans.y();
   _laserOdometry.pose.pose.position.z = trans.z();
-  if (_activeMode) {
-    _pubLaserOdometry.publish(_laserOdometry);
-  }
+  _pubLaserOdometry.publish(_laserOdometry);
 
   _laserOdometryTrans.stamp_ = ros::Time().fromSec(_timeSurfPointsLessFlat);
   _laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
@@ -849,36 +840,31 @@ void LaserOdometry::process()
 
 void LaserOdometry::publishResult()
 {
-  // only publish messages in active mode
-  if (!_activeMode) {
-    // transform each full resolution cloud in passive mode as we don't know who will be using it
-    transformToEnd(_laserCloud);
+  // publish results according to the input output ratio
+  if (_ioRatio > 1 && _frameCount % _ioRatio != 1) {
     return;
   }
 
-  // publish results according to the input output ratio
-  if (_ioRatio < 2 || _frameCount % _ioRatio == 1) {
-    ros::Time sweepTime = ros::Time().fromSec(_timeSurfPointsLessFlat);
+  ros::Time sweepTime = ros::Time().fromSec(_timeSurfPointsLessFlat);
 
-    sensor_msgs::PointCloud2 laserCloudCornerLast2;
-    pcl::toROSMsg(*_lastCornerCloud, laserCloudCornerLast2);
-    laserCloudCornerLast2.header.stamp = sweepTime;
-    laserCloudCornerLast2.header.frame_id = "/camera";
-    _pubLaserCloudCornerLast.publish(laserCloudCornerLast2);
+  sensor_msgs::PointCloud2 laserCloudCornerLast2;
+  pcl::toROSMsg(*_lastCornerCloud, laserCloudCornerLast2);
+  laserCloudCornerLast2.header.stamp = sweepTime;
+  laserCloudCornerLast2.header.frame_id = "/camera";
+  _pubLaserCloudCornerLast.publish(laserCloudCornerLast2);
 
-    sensor_msgs::PointCloud2 laserCloudSurfLast2;
-    pcl::toROSMsg(*_lastSurfaceCloud, laserCloudSurfLast2);
-    laserCloudSurfLast2.header.stamp = sweepTime;
-    laserCloudSurfLast2.header.frame_id = "/camera";
-    _pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
+  sensor_msgs::PointCloud2 laserCloudSurfLast2;
+  pcl::toROSMsg(*_lastSurfaceCloud, laserCloudSurfLast2);
+  laserCloudSurfLast2.header.stamp = sweepTime;
+  laserCloudSurfLast2.header.frame_id = "/camera";
+  _pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
 
-    sensor_msgs::PointCloud2 laserCloudFullRes3;
-    transformToEnd(_laserCloud);  // transform full resolution cloud before sending it
-    pcl::toROSMsg(*_laserCloud, laserCloudFullRes3);
-    laserCloudFullRes3.header.stamp = sweepTime;
-    laserCloudFullRes3.header.frame_id = "/camera";
-    _pubLaserCloudFullRes.publish(laserCloudFullRes3);
-  }
+  sensor_msgs::PointCloud2 laserCloudFullRes3;
+  transformToEnd(_laserCloud);  // transform full resolution cloud before sending it
+  pcl::toROSMsg(*_laserCloud, laserCloudFullRes3);
+  laserCloudFullRes3.header.stamp = sweepTime;
+  laserCloudFullRes3.header.frame_id = "/camera";
+  _pubLaserCloudFullRes.publish(laserCloudFullRes3);
 }
 
 } // end namespace loam

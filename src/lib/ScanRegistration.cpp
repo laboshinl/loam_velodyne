@@ -59,8 +59,7 @@ ScanRegistration::ScanRegistration(const float& scanPeriod,
         _regionCurvature(),
         _regionLabel(),
         _regionSortIndices(),
-        _scanNeighborPicked(),
-        _activeMode(false)
+        _scanNeighborPicked()
 {
   _scanStartIndices.assign(nScans, 0);
   _scanEndIndices.assign(nScans, 0);
@@ -87,19 +86,6 @@ bool ScanRegistration::setup(ros::NodeHandle& node,
   _pubSurfPointsFlat = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_flat", 2);
   _pubSurfPointsLessFlat = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_less_flat", 2);
   _pubImuTrans = node.advertise<sensor_msgs::PointCloud2>("/imu_trans", 5);
-
-  // set active mode
-  _activeMode = true;
-
-  return true;
-}
-
-
-
-bool ScanRegistration::setup(const RegistrationParams& config)
-{
-  _config = config;
-  _config.print();
 
   return true;
 }
@@ -478,11 +464,6 @@ void ScanRegistration::generateROSMsg(sensor_msgs::PointCloud2& msg,
 
 void ScanRegistration::publishResult()
 {
-  if (!_activeMode) {
-    // only publish messages in active mode
-    return;
-  }
-
   // publish full resolution and feature point clouds
   sensor_msgs::PointCloud2 laserCloudOutMsg;
   generateROSMsg(laserCloudOutMsg, _laserCloud);

@@ -67,9 +67,6 @@ bool TransformMaintenance::setup(ros::NodeHandle &node, ros::NodeHandle &private
   _subOdomAftMapped = node.subscribe<nav_msgs::Odometry>
       ("/aft_mapped_to_init", 5, &TransformMaintenance::odomAftMappedHandler, this);
 
-  // set active mode
-  _activeMode = true;
-
   return true;
 }
 
@@ -201,11 +198,7 @@ void TransformMaintenance::laserOdometryHandler(const nav_msgs::Odometry::ConstP
   _laserOdometry2.pose.pose.position.x = _transformMapped[3];
   _laserOdometry2.pose.pose.position.y = _transformMapped[4];
   _laserOdometry2.pose.pose.position.z = _transformMapped[5];
-
-  if (_activeMode) {
-    // only publish messages in active mode
-    _pubLaserOdometry2.publish(_laserOdometry2);
-  }
+  _pubLaserOdometry2.publish(_laserOdometry2);
 
   _laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
   _laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));

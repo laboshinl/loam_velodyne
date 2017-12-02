@@ -52,10 +52,10 @@ namespace loam {
  */
 class LaserOdometry {
 public:
-  LaserOdometry(const float& scanPeriod,
-                const uint16_t& ioRatio = 2);
+  explicit LaserOdometry(const float& scanPeriod,
+                         const uint16_t& ioRatio = 2);
 
-  /** \brief Setup component in active mode.
+  /** \brief Setup component.
    *
    * @param node the ROS node handle
    * @param privateNode the private ROS node handle
@@ -195,8 +195,6 @@ private:
 
   Vector3 _imuShiftFromStart;
   Vector3 _imuVeloFromStart;
-
-  bool _activeMode;   ///< active or passive mode (in active mode, results are published via ros topics, in passive mode not)
 
   ros::Publisher _pubLaserCloudCornerLast;  ///< last corner cloud message publisher
   ros::Publisher _pubLaserCloudSurfLast;    ///< last surface cloud message publisher
