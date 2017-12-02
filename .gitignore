@@ -1,11 +1,11 @@
 bin
 build
-catkin               
-devel                 
-catkin_generated     
+catkin
+devel
+catkin_generated
 gtest
 test_results
-CMakeFiles           
-cmake_install.cmake  
+CMakeFiles
+cmake_install.cmake
 Makefile
-
+.idea
