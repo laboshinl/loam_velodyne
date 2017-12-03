@@ -34,6 +34,7 @@
 #define LOAM_SCANREGISTRATION_H
 
 
+#include "common.h"
 #include "loam_types.h"
 #include "CircularBuffer.h"
 
@@ -45,6 +46,11 @@
 
 
 namespace loam {
+
+/** \brief A pair describing the start end end index of a range. */
+typedef std::pair<size_t, size_t> IndexRange;
+
+
 
 /** Point label options. */
 enum PointLabel {
@@ -252,9 +258,8 @@ typedef struct IMUState {
 class ScanRegistration {
 public:
   explicit ScanRegistration(const float& scanPeriod,
-                            const uint16_t& nScans = 0,
-                            const size_t& imuHistorySize = 200,
-                            const RegistrationParams& config = RegistrationParams());
+                            const RegistrationParams& config = RegistrationParams(),
+                            const size_t& imuHistorySize = 200);
 
   /** \brief Setup component.
    *
@@ -270,57 +275,30 @@ public:
    */
   virtual void handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn);
 
-  /** \brief Retrieve the current full resolution input cloud.
-   *
-   * @return the current full resolution input cloud
-   */
-  pcl::PointCloud<pcl::PointXYZI>::Ptr getFullResCloud() { return _laserCloud; };
-
-  /** \brief Retrieve the current sharp corner input sub cloud.
-   *
-   * @return the current sharp corner input sub cloud
-   */
-  pcl::PointCloud<pcl::PointXYZI>::Ptr getCornerPointsSharp() { return _cornerPointsSharp; };
-
-  /** \brief Retrieve the current less sharp corner input sub cloud.
-   *
-   * @return the current less sharp corner input sub cloud
-   */
-  pcl::PointCloud<pcl::PointXYZI>::Ptr getCornerPointsLessSharp() { return _cornerPointsLessSharp; };
-
-  /** \brief Retrieve the current flat surface input sub cloud.
-   *
-   * @return the current flat surface input sub cloud
-   */
-  pcl::PointCloud<pcl::PointXYZI>::Ptr getSurfacePointsFlat() { return _surfacePointsFlat; };
-
-  /** \brief Retrieve the current less flat surface input sub cloud.
-   *
-   * @return the current less flat surface input sub cloud
-   */
-  pcl::PointCloud<pcl::PointXYZI>::Ptr getSurfacePointsLessFlat() { return _surfacePointsLessFlat; };
-
-  /** \brief Retrieve the current IMU transformation information.
-   *
-   * @return the current IMU transformation information
-   */
-  pcl::PointCloud<pcl::PointXYZ>::Ptr getIMUTrans() { return _imuTrans; };
-
 
 protected:
-  /** \brief Prepare for next sweep: Reset internal cloud buffers and re-initialize start IMU state.
+  /** \brief Prepare for next scan / sweep.
    *
    * @param scanTime the current scan time
+   * @param newSweep indicator if a new sweep has started
    */
-  void reset(const ros::Time& scanTime);
+  void reset(const ros::Time& scanTime,
+             const bool& newSweep = true);
 
-  /** \brief Project the given point to the start of the sweep, using the current IMU state and relative time.
+  /** \breif Check is IMU data is available. */
+  inline bool hasIMUData() { return _imuHistory.size() > 0; };
+
+  /** \brief Set up the current IMU transformation for the specified relative time.
+   *
+   * @param relTime the time relative to the scan time
+   */
+  void setIMUTransformFor(const float& relTime);
+
+  /** \brief Project the given point to the start of the sweep, using the current IMU state and position shift.
    *
    * @param point the point to project
-   * @param relTime the relative point measurement time
    */
-  void transformToStartIMU(pcl::PointXYZI& point,
-                           const float& relTime);
+  void transformToStartIMU(pcl::PointXYZI& point);
 
   /** \brief Extract features from current laser cloud.
    *
@@ -344,36 +322,51 @@ protected:
   void setScanBuffersFor(const size_t& startIdx,
                          const size_t& endIdx);
 
-  /** \brief Set sweep end IMU transformation information.
+  /** \brief Mark a point and its neighbors as picked.
    *
-   * @param sweepDuration the total duration of the current sweep
+   * This method will mark neighboring points within the curvature region as picked,
+   * as long as they remain within close distance to each other.
+   *
+   * @param cloudIdx the index of the picked point in the full resolution cloud
+   * @param scanIdx the index of the picked point relative to the current scan
    */
-  void setIMUTrans(const double& sweepDuration);
+  void markAsPicked(const size_t& cloudIdx,
+                    const size_t& scanIdx);
 
   /** \brief Publish the current result via the respective topics. */
   void publishResult();
 
 
-protected:
-  const uint16_t _nScans;     ///< number of scans per sweep
-  const float _scanPeriod;    ///< time per scan
-  ros::Time _sweepStamp;      ///< time stamp of the beginning of current sweep
-  RegistrationParams _config; ///< registration parameter
+private:
+  /** \brief Try to interpolate the IMU state for the given time.
+   *
+   * @param relTime the time relative to the scan time
+   * @param outputState the output state instance
+   */
+  void interpolateIMUStateFor(const float& relTime,
+                              IMUState& outputState);
 
+
+protected:
+  const float _scanPeriod;      ///< time per scan
+  RegistrationParams _config;   ///< registration parameter
+
+  ros::Time _sweepStart;                  ///< time stamp of beginning of current sweep
+  ros::Time _scanTime;                    ///< time stamp of most recent scan
   IMUState _imuStart;                     ///< the interpolated IMU state corresponding to the start time of the currently processed laser scan
   IMUState _imuCur;                       ///< the interpolated IMU state corresponding to the time of the currently processed laser scan point
-  size_t _imuStartIdx;                    ///< the index in the IMU history of the first IMU state received after the current scan time
+  Vector3 _imuPositionShift;              ///< position shift between accumulated IMU position and interpolated IMU position
+  size_t _imuIdx;                         ///< the current index in the IMU history
   CircularBuffer<IMUState> _imuHistory;   ///< history of IMU states for cloud registration
 
-  pcl::PointCloud<pcl::PointXYZI>::Ptr _laserCloud;   ///< full resolution input cloud
-  std::vector<size_t> _scanStartIndices;              ///< start indices of the individual scans
-  std::vector<size_t> _scanEndIndices;                ///< end indices of the individual scans
+  pcl::PointCloud<pcl::PointXYZI> _laserCloud;   ///< full resolution input cloud
+  std::vector<IndexRange> _scanIndices;          ///< start and end indices of the individual scans withing the full resolution cloud
 
-  pcl::PointCloud<pcl::PointXYZI>::Ptr _cornerPointsSharp;      ///< sharp corner points cloud
-  pcl::PointCloud<pcl::PointXYZI>::Ptr _cornerPointsLessSharp;  ///< less sharp corner points cloud
-  pcl::PointCloud<pcl::PointXYZI>::Ptr _surfacePointsFlat;      ///< flat surface points cloud
-  pcl::PointCloud<pcl::PointXYZI>::Ptr _surfacePointsLessFlat;  ///< less flat surface points cloud
-  pcl::PointCloud<pcl::PointXYZ>::Ptr _imuTrans;                ///< IMU transformation information
+  pcl::PointCloud<pcl::PointXYZI> _cornerPointsSharp;      ///< sharp corner points cloud
+  pcl::PointCloud<pcl::PointXYZI> _cornerPointsLessSharp;  ///< less sharp corner points cloud
+  pcl::PointCloud<pcl::PointXYZI> _surfacePointsFlat;      ///< flat surface points cloud
+  pcl::PointCloud<pcl::PointXYZI> _surfacePointsLessFlat;  ///< less flat surface points cloud
+  pcl::PointCloud<pcl::PointXYZ> _imuTrans;                ///< IMU transformation information
 
   std::vector<float> _regionCurvature;      ///< point curvature buffer
   std::vector<PointLabel> _regionLabel;     ///< point label buffer

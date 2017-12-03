@@ -47,9 +47,9 @@ namespace loam {
 class VelodyneScanRegistration : virtual public ScanRegistration {
 public:
   VelodyneScanRegistration(const float& scanPeriod,
-                           const uint16_t& nScans,
-                           const size_t& imuHistorySize = 200,
-                           const RegistrationParams& config = RegistrationParams());
+                           const uint16_t& nScanRings,
+                           const RegistrationParams& config = RegistrationParams(),
+                           const size_t& imuHistorySize = 200);
 
 
   /** \brief Setup component in active mode.
@@ -60,11 +60,11 @@ public:
   bool setup(ros::NodeHandle& node,
              ros::NodeHandle& privateNode);
 
-  /** \brief Process a new input cloud message.
+  /** \brief Handler method for input cloud messages.
    *
    * @param laserCloudMsg the new input cloud message to process
    */
-  void processCloudMessage(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg);
+  void handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg);
 
   /** \brief Process a new input cloud.
    *
@@ -75,7 +75,9 @@ public:
                const ros::Time& scanTime);
 
 protected:
-  int _systemDelay;                 ///< system startup delay counter
+  int _systemDelay;             ///< system startup delay counter
+  const uint16_t _nScanRings;   ///< number of scan rings
+
   ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber
 };
 

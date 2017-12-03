@@ -39,11 +39,12 @@
 namespace loam {
 
 VelodyneScanRegistration::VelodyneScanRegistration(const float& scanPeriod,
-                                                   const uint16_t& nScans,
-                                                   const size_t& imuHistorySize,
-                                                   const RegistrationParams& config)
-      : ScanRegistration(scanPeriod, nScans, imuHistorySize, config),
-        _systemDelay(20)
+                                                   const uint16_t& nScanRings,
+                                                   const RegistrationParams& config,
+                                                   const size_t& imuHistorySize)
+      : ScanRegistration(scanPeriod, config, imuHistorySize),
+        _systemDelay(20),
+        _nScanRings(nScanRings)
 {
 
 };
@@ -58,14 +59,14 @@ bool VelodyneScanRegistration::setup(ros::NodeHandle& node,
   }
 
   _subLaserCloud = node.subscribe<sensor_msgs::PointCloud2>
-      ("/velodyne_points", 2, &VelodyneScanRegistration::processCloudMessage, this);
+      ("/velodyne_points", 2, &VelodyneScanRegistration::handleCloudMessage, this);
 
   return true;
 }
 
 
 
-void VelodyneScanRegistration::processCloudMessage(const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg)
+void VelodyneScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 {
   if (_systemDelay > 0) {
     _systemDelay--;
@@ -84,31 +85,30 @@ void VelodyneScanRegistration::processCloudMessage(const sensor_msgs::PointCloud
 void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
                                        const ros::Time& scanTime)
 {
-  size_t cloudSize = laserCloudIn.points.size();
+  size_t cloudSize = laserCloudIn.size();
 
   // reset internal buffers and set IMU start state based on current scan time
   reset(scanTime);
 
   // determine scan start and end orientations
-  float startOri = -std::atan2(laserCloudIn.points[0].y, laserCloudIn.points[0].x);
-  float endOri = -std::atan2(laserCloudIn.points[cloudSize - 1].y,
-                             laserCloudIn.points[cloudSize - 1].x) + 2 * float(M_PI);
+  float startOri = -std::atan2(laserCloudIn[0].y, laserCloudIn[0].x);
+  float endOri = -std::atan2(laserCloudIn[cloudSize - 1].y,
+                             laserCloudIn[cloudSize - 1].x) + 2 * float(M_PI);
   if (endOri - startOri > 3 * M_PI) {
     endOri -= 2 * M_PI;
   } else if (endOri - startOri < M_PI) {
     endOri += 2 * M_PI;
   }
 
-  size_t imuIdx = _imuStartIdx;
   bool halfPassed = false;
   pcl::PointXYZI point;
-  std::vector<pcl::PointCloud<pcl::PointXYZI> > laserCloudScans(_nScans);
+  std::vector<pcl::PointCloud<pcl::PointXYZI> > laserCloudScans(_nScanRings);
 
   // extract valid points from input cloud
   for (int i = 0; i < cloudSize; i++) {
-    point.x = laserCloudIn.points[i].y;
-    point.y = laserCloudIn.points[i].z;
-    point.z = laserCloudIn.points[i].x;
+    point.x = laserCloudIn[i].y;
+    point.y = laserCloudIn[i].z;
+    point.z = laserCloudIn[i].x;
 
     // skip NaN and INF valued points
     if (!pcl_isfinite(point.x) ||
@@ -125,8 +125,9 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
     // calculate vertical point angle and scan ID
     float angle = rad2deg(std::atan(point.y / std::sqrt(point.x * point.x + point.z * point.z)));
     int roundedAngle = int(angle + (angle < 0.0 ? -0.5 : 0.5));
-    int scanID = roundedAngle > 0 ? roundedAngle : roundedAngle + (_nScans - 1);
-    if (scanID > (_nScans - 1) || scanID < 0 ){
+    int scanID = roundedAngle > 0 ? roundedAngle : roundedAngle + (_nScanRings - 1);
+
+    if (scanID >= _nScanRings || scanID < 0 ){
       continue;
     }
 
@@ -157,20 +158,9 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
     point.intensity = scanID + relTime;
 
     // project point to the start of the sweep using corresponding IMU data
-    if (_imuHistory.size() > 0) {
-      while (imuIdx < _imuHistory.size() - 1 && (scanTime - _imuHistory[imuIdx].stamp).toSec() + relTime > 0) {
-        imuIdx++;
-      }
-
-      if (imuIdx == 0 || (scanTime - _imuHistory[imuIdx].stamp).toSec() + relTime > 0) {
-        _imuCur = _imuHistory[imuIdx];
-      } else {
-        float ratio = ((_imuHistory[imuIdx].stamp - scanTime).toSec() - relTime)
-                        / (_imuHistory[imuIdx].stamp - _imuHistory[imuIdx - 1].stamp).toSec();
-        IMUState::interpolate(_imuHistory[imuIdx], _imuHistory[imuIdx - 1], ratio, _imuCur);
-      }
-
-      transformToStartIMU(point, relTime);
+    if (hasIMUData()) {
+      setIMUTransformFor(relTime);
+      transformToStartIMU(point);
     }
 
     laserCloudScans[scanID].push_back(point);
@@ -178,19 +168,17 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
 
   // construct sorted full resolution cloud
   cloudSize = 0;
-  for (int i = 0; i < _nScans; i++) {
-    *_laserCloud += laserCloudScans[i];
+  for (int i = 0; i < _nScanRings; i++) {
+    _laserCloud += laserCloudScans[i];
 
-    _scanStartIndices[i] = cloudSize;
-    cloudSize += laserCloudScans[i].points.size();
-    _scanEndIndices[i] = cloudSize - 1;
+    IndexRange range(cloudSize, 0);
+    cloudSize += laserCloudScans[i].size();
+    range.second = cloudSize > 0 ? cloudSize - 1 : 0;
+    _scanIndices.push_back(range);
   }
 
   // extract features
   extractFeatures();
-
-  // set final IMU transformation information
-  setIMUTrans(_scanPeriod);
 
   // publish result
   publishResult();

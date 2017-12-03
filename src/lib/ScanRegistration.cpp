@@ -31,7 +31,6 @@
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
 #include "loam_velodyne/ScanRegistration.h"
-#include "loam_velodyne/common.h"
 #include "math_utils.h"
 
 #include <pcl/filters/voxel_grid.h>
@@ -41,30 +40,28 @@
 namespace loam {
 
 ScanRegistration::ScanRegistration(const float& scanPeriod,
-                                   const uint16_t& nScans,
-                                   const size_t& imuHistorySize,
-                                   const RegistrationParams& config)
-      : _nScans(nScans),
-        _scanPeriod(scanPeriod),
-        _sweepStamp(),
+                                   const RegistrationParams& config,
+                                   const size_t& imuHistorySize)
+      : _scanPeriod(scanPeriod),
         _config(config),
+        _sweepStart(),
+        _scanTime(),
         _imuStart(),
         _imuCur(),
-        _imuStartIdx(0),
+        _imuIdx(0),
         _imuHistory(imuHistorySize),
-        _laserCloud(new pcl::PointCloud<pcl::PointXYZI>()),
-        _cornerPointsSharp(new pcl::PointCloud<pcl::PointXYZI>()),
-        _cornerPointsLessSharp(new pcl::PointCloud<pcl::PointXYZI>()),
-        _surfacePointsFlat(new pcl::PointCloud<pcl::PointXYZI>()),
-        _surfacePointsLessFlat(new pcl::PointCloud<pcl::PointXYZI>()),
-        _imuTrans(new pcl::PointCloud<pcl::PointXYZ>(4, 1)),
+        _laserCloud(),
+        _cornerPointsSharp(),
+        _cornerPointsLessSharp(),
+        _surfacePointsFlat(),
+        _surfacePointsLessFlat(),
+        _imuTrans(4, 1),
         _regionCurvature(),
         _regionLabel(),
         _regionSortIndices(),
         _scanNeighborPicked()
 {
-  _scanStartIndices.assign(nScans, 0);
-  _scanEndIndices.assign(nScans, 0);
+
 };
 
 
@@ -131,56 +128,54 @@ void ScanRegistration::handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn)
 
 
 
-void ScanRegistration::reset(const ros::Time& scanTime)
+void ScanRegistration::reset(const ros::Time& scanTime,
+                             const bool& newSweep)
 {
-  _sweepStamp = scanTime;
+  _scanTime = scanTime;
 
-  // clear cloud buffers
-  _laserCloud->clear();
-  _cornerPointsSharp->clear();
-  _cornerPointsLessSharp->clear();
-  _surfacePointsFlat->clear();
-  _surfacePointsLessFlat->clear();
+  // re-initialize IMU start index and state
+  _imuIdx = 0;
+  if (hasIMUData()) {
+    interpolateIMUStateFor(0, _imuStart);
+  }
 
+  // clear internal cloud buffers at the beginning of a sweep
+  if (newSweep) {
+    _sweepStart = scanTime;
 
-  // reset scan indices vectors
-  _scanStartIndices.assign(_nScans, 0);
-  _scanEndIndices.assign(_nScans, 0);
+    // clear cloud buffers
+    _laserCloud.clear();
+    _cornerPointsSharp.clear();
+    _cornerPointsLessSharp.clear();
+    _surfacePointsFlat.clear();
+    _surfacePointsLessFlat.clear();
 
-
-  // re-initialize IMU start state and index
-  _imuStartIdx = 0;
-
-  if (_imuHistory.size() > 0) {
-    while (_imuStartIdx < _imuHistory.size() - 1 && (scanTime - _imuHistory[_imuStartIdx].stamp).toSec() > 0) {
-      _imuStartIdx++;
-    }
-
-    // fetch / interpolate IMU start state
-    if (_imuStartIdx == 0 || (scanTime - _imuHistory[_imuStartIdx].stamp).toSec() > 0) {
-      // scan time newer then newest or older than oldest IMU message
-      _imuStart = _imuHistory[_imuStartIdx];
-    } else {
-      float ratio = (_imuHistory[_imuStartIdx].stamp - scanTime).toSec()
-                    / (_imuHistory[_imuStartIdx].stamp - _imuHistory[_imuStartIdx - 1].stamp).toSec();
-      IMUState::interpolate(_imuHistory[_imuStartIdx], _imuHistory[_imuStartIdx - 1], ratio, _imuStart);
-    }
+    // clear scan indices vector
+    _scanIndices.clear();
   }
 }
 
 
 
-void ScanRegistration::transformToStartIMU(pcl::PointXYZI& point,
-                                           const float& pointTime)
+void ScanRegistration::setIMUTransformFor(const float& relTime)
+{
+  interpolateIMUStateFor(relTime, _imuCur);
+
+  float relSweepTime = (_scanTime - _sweepStart).toSec() + relTime;
+  _imuPositionShift = _imuCur.position - _imuStart.position - _imuStart.velocity * relSweepTime;
+}
+
+
+
+void ScanRegistration::transformToStartIMU(pcl::PointXYZI& point)
 {
   // rotate point to global IMU system
   rotateZXY(point, _imuCur.roll, _imuCur.pitch, _imuCur.yaw);
 
   // add global IMU position shift
-  Vector3 positionShift = _imuCur.position - _imuStart.position - _imuStart.velocity * pointTime;
-  point.x += positionShift.x();
-  point.y += positionShift.y();
-  point.z += positionShift.z();
+  point.x += _imuPositionShift.x();
+  point.y += _imuPositionShift.y();
+  point.z += _imuPositionShift.z();
 
   // rotate point back to local IMU system relative to the start IMU state
   rotateYXZ(point, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
@@ -188,29 +183,21 @@ void ScanRegistration::transformToStartIMU(pcl::PointXYZI& point,
 
 
 
-void ScanRegistration::setIMUTrans(const double& sweepDuration)
+void ScanRegistration::interpolateIMUStateFor(const float &relTime,
+                                              IMUState &outputState)
 {
-  _imuTrans->points[0].x = _imuStart.pitch.rad();
-  _imuTrans->points[0].y = _imuStart.yaw.rad();
-  _imuTrans->points[0].z = _imuStart.roll.rad();
+  double timeDiff = (_scanTime - _imuHistory[_imuIdx].stamp).toSec() + relTime;
+  while (_imuIdx < _imuHistory.size() - 1 && timeDiff > 0) {
+    _imuIdx++;
+    timeDiff = (_scanTime - _imuHistory[_imuIdx].stamp).toSec() + relTime;
+  }
 
-  _imuTrans->points[1].x = _imuCur.pitch.rad();
-  _imuTrans->points[1].y = _imuCur.yaw.rad();
-  _imuTrans->points[1].z = _imuCur.roll.rad();
-
-  Vector3 imuShiftFromStart = _imuCur.position - _imuStart.position - _imuStart.velocity * sweepDuration;
-  rotateYXZ(imuShiftFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
-
-  _imuTrans->points[2].x = imuShiftFromStart.x();
-  _imuTrans->points[2].y = imuShiftFromStart.y();
-  _imuTrans->points[2].z = imuShiftFromStart.z();
-
-  Vector3 imuVelocityFromStart = _imuCur.velocity - _imuStart.velocity;
-  rotateYXZ(imuVelocityFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
-
-  _imuTrans->points[3].x = imuVelocityFromStart.x();
-  _imuTrans->points[3].y = imuVelocityFromStart.y();
-  _imuTrans->points[3].z = imuVelocityFromStart.z();
+  if (_imuIdx == 0 || timeDiff > 0) {
+    outputState = _imuHistory[_imuIdx];
+  } else {
+    float ratio = -timeDiff / (_imuHistory[_imuIdx].stamp - _imuHistory[_imuIdx - 1].stamp).toSec();
+    IMUState::interpolate(_imuHistory[_imuIdx], _imuHistory[_imuIdx - 1], ratio, outputState);
+  }
 }
 
 
@@ -218,12 +205,11 @@ void ScanRegistration::setIMUTrans(const double& sweepDuration)
 void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
 {
   // extract features from individual scans
-  for (int i = beginIdx; i < _nScans; i++) {
-    // ROS_INFO("Extract features for scan %d", i);
-
+  size_t nScans = _scanIndices.size();
+  for (size_t i = beginIdx; i < nScans; i++) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr surfPointsLessFlatScan(new pcl::PointCloud<pcl::PointXYZI>);
-    size_t scanStartIdx = _scanStartIndices[i];
-    size_t scanEndIdx = _scanEndIndices[i];
+    size_t scanStartIdx = _scanIndices[i].first;
+    size_t scanEndIdx = _scanIndices[i].second;
 
     // skip empty scans
     if (scanEndIdx <= scanStartIdx + 2 * _config.curvatureRegion) {
@@ -233,7 +219,7 @@ void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
     // Quick&Dirty fix for relative point time calculation without IMU data
     /*float scanSize = scanEndIdx - scanStartIdx + 1;
     for (int j = scanStartIdx; j <= scanEndIdx; j++) {
-      _laserCloud->points[j].intensity = i + _scanPeriod * (j - scanStartIdx) / scanSize;
+      _laserCloud[j].intensity = i + _scanPeriod * (j - scanStartIdx) / scanSize;
     }*/
 
     // reset scan buffers
@@ -257,8 +243,6 @@ void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
       setRegionBuffersFor(sp, ep);
 
 
-      // ROS_INFO("Extract corner features");
-
       // extract corner features
       int largestPickedNum = 0;
       for (size_t k = regionSize; k > 0 && largestPickedNum < _config.maxCornerLessSharp;) {
@@ -272,34 +256,15 @@ void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
           largestPickedNum++;
           if (largestPickedNum <= _config.maxCornerSharp) {
             _regionLabel[regionIdx] = CORNER_SHARP;
-            _cornerPointsSharp->push_back(_laserCloud->points[idx]);
-            _cornerPointsLessSharp->push_back(_laserCloud->points[idx]);
+            _cornerPointsSharp.push_back(_laserCloud[idx]);
           } else {
             _regionLabel[regionIdx] = CORNER_LESS_SHARP;
-            _cornerPointsLessSharp->push_back(_laserCloud->points[idx]);
           }
+          _cornerPointsLessSharp.push_back(_laserCloud[idx]);
 
-          _scanNeighborPicked[scanIdx] = 1;
-          for (int l = 1; l <= _config.curvatureRegion; l++) {
-            float distSquare = calcSquaredDiff(_laserCloud->points[idx + l], _laserCloud->points[idx + l - 1]);
-            if (distSquare > 0.05) {
-              break;
-            }
-
-            _scanNeighborPicked[scanIdx + l] = 1;
-          }
-          for (int l = 1; l <= _config.curvatureRegion; l++) {
-            float distSquare = calcSquaredDiff(_laserCloud->points[idx - l], _laserCloud->points[idx - l + 1]);
-            if (distSquare > 0.05) {
-              break;
-            }
-
-            _scanNeighborPicked[scanIdx - l] = 1;
-          }
+          markAsPicked(idx, scanIdx);
         }
       }
-
-      // ROS_INFO("Extract flat features");
 
       // extract flat surface features
       int smallestPickedNum = 0;
@@ -313,34 +278,16 @@ void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
 
           smallestPickedNum++;
           _regionLabel[regionIdx] = SURFACE_FLAT;
-          _surfacePointsFlat->push_back(_laserCloud->points[idx]);
+          _surfacePointsFlat.push_back(_laserCloud[idx]);
 
-          _scanNeighborPicked[scanIdx] = 1;
-          for (int l = 1; l <= _config.curvatureRegion; l++) {
-            float distSquare = calcSquaredDiff(_laserCloud->points[idx + l], _laserCloud->points[idx + l - 1]);
-            if (distSquare > 0.05) {
-              break;
-            }
-
-            _scanNeighborPicked[scanIdx + l] = 1;
-          }
-          for (int l = 1; l <= _config.curvatureRegion; l++) {
-            float distSquare = calcSquaredDiff(_laserCloud->points[idx - l], _laserCloud->points[idx - l + 1]);
-            if (distSquare > 0.05) {
-              break;
-            }
-
-            _scanNeighborPicked[scanIdx - l] = 1;
-          }
+          markAsPicked(idx, scanIdx);
         }
       }
-
-      // ROS_INFO("Extract less flat features");
 
       // extract less flat surface features
       for (int k = 0; k < regionSize; k++) {
         if (_regionLabel[k] <= SURFACE_LESS_FLAT) {
-          surfPointsLessFlatScan->push_back(_laserCloud->points[sp + k]);
+          surfPointsLessFlatScan->push_back(_laserCloud[sp + k]);
         }
       }
     }
@@ -352,7 +299,7 @@ void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
     downSizeFilter.setLeafSize(_config.lessFlatFilterSize, _config.lessFlatFilterSize, _config.lessFlatFilterSize);
     downSizeFilter.filter(surfPointsLessFlatScanDS);
 
-    *_surfacePointsLessFlat += surfPointsLessFlatScanDS;
+    _surfacePointsLessFlat += surfPointsLessFlatScanDS;
   }
 }
 
@@ -361,8 +308,6 @@ void ScanRegistration::extractFeatures(const uint16_t& beginIdx)
 void ScanRegistration::setRegionBuffersFor(const size_t& startIdx,
                                            const size_t& endIdx)
 {
-  // ROS_INFO("Set region buffers for %d  to  %d", int(startIdx), int(endIdx));
-
   // resize buffers
   size_t regionSize = endIdx - startIdx + 1;
   _regionCurvature.resize(regionSize);
@@ -373,14 +318,14 @@ void ScanRegistration::setRegionBuffersFor(const size_t& startIdx,
   float pointWeight = -2 * _config.curvatureRegion;
 
   for (size_t i = startIdx, regionIdx = 0; i <= endIdx; i++, regionIdx++) {
-    float diffX = pointWeight * _laserCloud->points[i].x;
-    float diffY = pointWeight * _laserCloud->points[i].y;
-    float diffZ = pointWeight * _laserCloud->points[i].z;
+    float diffX = pointWeight * _laserCloud[i].x;
+    float diffY = pointWeight * _laserCloud[i].y;
+    float diffZ = pointWeight * _laserCloud[i].z;
 
     for (int j = 1; j <= _config.curvatureRegion; j++) {
-      diffX += _laserCloud->points[i + j].x + _laserCloud->points[i - j].x;
-      diffY += _laserCloud->points[i + j].y + _laserCloud->points[i - j].y;
-      diffZ += _laserCloud->points[i + j].z + _laserCloud->points[i - j].z;
+      diffX += _laserCloud[i + j].x + _laserCloud[i - j].x;
+      diffY += _laserCloud[i + j].y + _laserCloud[i - j].y;
+      diffZ += _laserCloud[i + j].z + _laserCloud[i - j].z;
     }
 
     _regionCurvature[regionIdx] = diffX * diffX + diffY * diffY + diffZ * diffZ;
@@ -402,17 +347,15 @@ void ScanRegistration::setRegionBuffersFor(const size_t& startIdx,
 void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
                                          const size_t& endIdx)
 {
-  // ROS_INFO("Set scan buffers for %d  to  %d", int(startIdx), int(endIdx));
-
   // resize buffers
   size_t scanSize = endIdx - startIdx + 1;
   _scanNeighborPicked.assign(scanSize, 0);
 
   // mark unreliable points as picked
   for (size_t i = startIdx + _config.curvatureRegion; i < endIdx - _config.curvatureRegion; i++) {
-    const pcl::PointXYZI& previousPoint = (_laserCloud->points[i - 1]);
-    const pcl::PointXYZI& point = (_laserCloud->points[i]);
-    const pcl::PointXYZI& nextPoint = (_laserCloud->points[i + 1]);
+    const pcl::PointXYZI& previousPoint = (_laserCloud[i - 1]);
+    const pcl::PointXYZI& point = (_laserCloud[i]);
+    const pcl::PointXYZI& nextPoint = (_laserCloud[i + 1]);
 
     float diffNext = calcSquaredDiff(nextPoint, point);
 
@@ -424,10 +367,7 @@ void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
         float weighted_distance = std::sqrt(calcSquaredDiff(nextPoint, point, depth2 / depth1)) / depth2;
 
         if (weighted_distance < 0.1) {
-          size_t scanIdx = i - startIdx;
-          for (int j = 0; j <= _config.curvatureRegion; j++) {
-            _scanNeighborPicked[scanIdx - j] = 1;
-          }
+          std::fill_n(&_scanNeighborPicked[i - startIdx - _config.curvatureRegion], _config.curvatureRegion + 1, 1);
 
           continue;
         }
@@ -435,10 +375,7 @@ void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
         float weighted_distance = std::sqrt(calcSquaredDiff(point, nextPoint, depth1 / depth2)) / depth1;
 
         if (weighted_distance < 0.1) {
-          size_t scanIdx = i - startIdx;
-          for (int j = _config.curvatureRegion + 1; j > 0 ; j--) {
-            _scanNeighborPicked[scanIdx + j] = 1;
-          }
+          std::fill_n(&_scanNeighborPicked[i - startIdx + 1], _config.curvatureRegion + 1, 1);
         }
       }
     }
@@ -454,17 +391,64 @@ void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
 
 
 
+void ScanRegistration::markAsPicked(const size_t& cloudIdx,
+                                    const size_t& scanIdx)
+{
+  _scanNeighborPicked[scanIdx] = 1;
+
+  for (int i = 1; i <= _config.curvatureRegion; i++) {
+    if (calcSquaredDiff(_laserCloud[cloudIdx + i], _laserCloud[cloudIdx + i - 1]) > 0.05) {
+      break;
+    }
+
+    _scanNeighborPicked[scanIdx + i] = 1;
+  }
+
+  for (int i = 1; i <= _config.curvatureRegion; i++) {
+    if (calcSquaredDiff(_laserCloud[cloudIdx - i], _laserCloud[cloudIdx - i + 1]) > 0.05) {
+      break;
+    }
+
+    _scanNeighborPicked[scanIdx - i] = 1;
+  }
+}
+
+
+
 void ScanRegistration::publishResult()
 {
   // publish full resolution and feature point clouds
-  publishCloudMsg(_pubLaserCloud,            *_laserCloud,            _sweepStamp, "/camera");
-  publishCloudMsg(_pubCornerPointsSharp,     *_cornerPointsSharp,     _sweepStamp, "/camera");
-  publishCloudMsg(_pubCornerPointsLessSharp, *_cornerPointsLessSharp, _sweepStamp, "/camera");
-  publishCloudMsg(_pubSurfPointsFlat,        *_surfacePointsFlat,     _sweepStamp, "/camera");
-  publishCloudMsg(_pubSurfPointsLessFlat,    *_surfacePointsLessFlat, _sweepStamp, "/camera");
+  publishCloudMsg(_pubLaserCloud,            _laserCloud,            _sweepStart, "/camera");
+  publishCloudMsg(_pubCornerPointsSharp,     _cornerPointsSharp,     _sweepStart, "/camera");
+  publishCloudMsg(_pubCornerPointsLessSharp, _cornerPointsLessSharp, _sweepStart, "/camera");
+  publishCloudMsg(_pubSurfPointsFlat,        _surfacePointsFlat,     _sweepStart, "/camera");
+  publishCloudMsg(_pubSurfPointsLessFlat,    _surfacePointsLessFlat, _sweepStart, "/camera");
+
 
   // publish corresponding IMU transformation information
-  publishCloudMsg(_pubImuTrans,              *_imuTrans,              _sweepStamp, "/camera");
+  _imuTrans[0].x = _imuStart.pitch.rad();
+  _imuTrans[0].y = _imuStart.yaw.rad();
+  _imuTrans[0].z = _imuStart.roll.rad();
+
+  _imuTrans[1].x = _imuCur.pitch.rad();
+  _imuTrans[1].y = _imuCur.yaw.rad();
+  _imuTrans[1].z = _imuCur.roll.rad();
+
+  Vector3 imuShiftFromStart = _imuPositionShift;
+  rotateYXZ(imuShiftFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
+
+  _imuTrans[2].x = imuShiftFromStart.x();
+  _imuTrans[2].y = imuShiftFromStart.y();
+  _imuTrans[2].z = imuShiftFromStart.z();
+
+  Vector3 imuVelocityFromStart = _imuCur.velocity - _imuStart.velocity;
+  rotateYXZ(imuVelocityFromStart, -_imuStart.yaw, -_imuStart.pitch, -_imuStart.roll);
+
+  _imuTrans[3].x = imuVelocityFromStart.x();
+  _imuTrans[3].y = imuVelocityFromStart.y();
+  _imuTrans[3].z = imuVelocityFromStart.z();
+
+  publishCloudMsg(_pubImuTrans, _imuTrans, _sweepStart, "/camera");
 }
 
 } // end namespace loam
