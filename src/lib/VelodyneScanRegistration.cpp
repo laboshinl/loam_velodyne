@@ -30,7 +30,10 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include "VelodyneScanRegistration.h"
+#include "loam_velodyne/VelodyneScanRegistration.h"
+#include "math_utils.h"
+
+#include <pcl_conversions/pcl_conversions.h>
 
 
 namespace loam {
@@ -120,7 +123,7 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
     }
 
     // calculate vertical point angle and scan ID
-    float angle = std::atan(point.y / std::sqrt(point.x * point.x + point.z * point.z)) * 180 / float(M_PI);
+    float angle = rad2deg(std::atan(point.y / std::sqrt(point.x * point.x + point.z * point.z)));
     int roundedAngle = int(angle + (angle < 0.0 ? -0.5 : 0.5));
     int scanID = roundedAngle > 0 ? roundedAngle : roundedAngle + (_nScans - 1);
     if (scanID > (_nScans - 1) || scanID < 0 ){

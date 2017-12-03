@@ -34,7 +34,9 @@
 #define LOAM_VELODYNESCANREGISTRATION_H
 
 
-#include "ScanRegistration.h"
+#include "loam_velodyne/ScanRegistration.h"
+
+#include <sensor_msgs/PointCloud2.h>
 
 
 namespace loam {

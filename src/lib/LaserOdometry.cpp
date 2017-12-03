@@ -30,9 +30,10 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include "LaserOdometry.h"
+#include "loam_velodyne/LaserOdometry.h"
+#include "loam_velodyne/common.h"
+#include "math_utils.h"
 
-#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/filter.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
@@ -846,25 +847,11 @@ void LaserOdometry::publishResult()
   }
 
   ros::Time sweepTime = ros::Time().fromSec(_timeSurfPointsLessFlat);
+  transformToEnd(_laserCloud);  // transform full resolution cloud to sweep end before sending it
 
-  sensor_msgs::PointCloud2 laserCloudCornerLast2;
-  pcl::toROSMsg(*_lastCornerCloud, laserCloudCornerLast2);
-  laserCloudCornerLast2.header.stamp = sweepTime;
-  laserCloudCornerLast2.header.frame_id = "/camera";
-  _pubLaserCloudCornerLast.publish(laserCloudCornerLast2);
-
-  sensor_msgs::PointCloud2 laserCloudSurfLast2;
-  pcl::toROSMsg(*_lastSurfaceCloud, laserCloudSurfLast2);
-  laserCloudSurfLast2.header.stamp = sweepTime;
-  laserCloudSurfLast2.header.frame_id = "/camera";
-  _pubLaserCloudSurfLast.publish(laserCloudSurfLast2);
-
-  sensor_msgs::PointCloud2 laserCloudFullRes3;
-  transformToEnd(_laserCloud);  // transform full resolution cloud before sending it
-  pcl::toROSMsg(*_laserCloud, laserCloudFullRes3);
-  laserCloudFullRes3.header.stamp = sweepTime;
-  laserCloudFullRes3.header.frame_id = "/camera";
-  _pubLaserCloudFullRes.publish(laserCloudFullRes3);
+  publishCloudMsg(_pubLaserCloudCornerLast, *_lastCornerCloud,  sweepTime, "/camera");
+  publishCloudMsg(_pubLaserCloudSurfLast,   *_lastSurfaceCloud, sweepTime, "/camera");
+  publishCloudMsg(_pubLaserCloudFullRes,    *_laserCloud,       sweepTime, "/camera");
 }
 
 } // end namespace loam

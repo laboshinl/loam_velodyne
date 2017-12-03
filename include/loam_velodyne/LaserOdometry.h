@@ -33,7 +33,8 @@
 #ifndef LOAM_LASERODOMETRY_H
 #define LOAM_LASERODOMETRY_H
 
-#include "math_utils.h"
+
+#include "loam_types.h"
 #include "loam_velodyne/nanoflann_pcl.h"
 
 #include <ros/node_handle.h>

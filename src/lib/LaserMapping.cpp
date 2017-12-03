@@ -30,10 +30,11 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include "LaserMapping.h"
+#include "loam_velodyne/LaserMapping.h"
+#include "loam_velodyne/common.h"
 #include "loam_velodyne/nanoflann_pcl.h"
+#include "math_utils.h"
 
-#include <pcl_conversions/pcl_conversions.h>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
@@ -1036,6 +1037,8 @@ void LaserMapping::optimizeTransformTobeMapped()
 
 void LaserMapping::publishResult()
 {
+  ros::Time odometryTime = ros::Time().fromSec(_timeLaserOdometry);
+
   // publish new map cloud according to the input output ratio
   _mapFrameCount++;
   if (_mapFrameCount >= _mapFrameNum) {
@@ -1056,11 +1059,7 @@ void LaserMapping::publishResult()
     _downSizeFilterCorner.filter(*_laserCloudSurroundDS);
 
     // publish new map cloud
-    sensor_msgs::PointCloud2 laserCloudSurround3;
-    pcl::toROSMsg(*_laserCloudSurroundDS, laserCloudSurround3);
-    laserCloudSurround3.header.stamp = ros::Time().fromSec(_timeLaserOdometry);
-    laserCloudSurround3.header.frame_id = "/camera_init";
-    _pubLaserCloudSurround.publish(laserCloudSurround3);
+    publishCloudMsg(_pubLaserCloudSurround, *_laserCloudSurroundDS, odometryTime, "/camera_init");
   }
 
 
@@ -1071,11 +1070,7 @@ void LaserMapping::publishResult()
   }
 
   // publish transformed full resolution input cloud
-  sensor_msgs::PointCloud2 laserCloudFullRes3;
-  pcl::toROSMsg(*_laserCloudFullRes, laserCloudFullRes3);
-  laserCloudFullRes3.header.stamp = ros::Time().fromSec(_timeLaserOdometry);
-  laserCloudFullRes3.header.frame_id = "/camera_init";
-  _pubLaserCloudFullRes.publish(laserCloudFullRes3);
+  publishCloudMsg(_pubLaserCloudFullRes, *_laserCloudFullRes, odometryTime, "/camera_init");
 
 
   // publish odometry after mapped transformations
@@ -1084,7 +1079,7 @@ void LaserMapping::publishResult()
         -_transformAftMapped.rot_x.rad(),
         -_transformAftMapped.rot_y.rad());
 
-  _odomAftMapped.header.stamp = ros::Time().fromSec(_timeLaserOdometry);
+  _odomAftMapped.header.stamp = odometryTime;
   _odomAftMapped.pose.pose.orientation.x = -geoQuat.y;
   _odomAftMapped.pose.pose.orientation.y = -geoQuat.z;
   _odomAftMapped.pose.pose.orientation.z = geoQuat.x;
@@ -1100,7 +1095,7 @@ void LaserMapping::publishResult()
   _odomAftMapped.twist.twist.linear.z = _transformBefMapped.pos.z();
   _pubOdomAftMapped.publish(_odomAftMapped);
 
-  _aftMappedTrans.stamp_ = ros::Time().fromSec(_timeLaserOdometry);
+  _aftMappedTrans.stamp_ = odometryTime;
   _aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
   _aftMappedTrans.setOrigin(tf::Vector3(_transformAftMapped.pos.x(),
                                         _transformAftMapped.pos.y(),

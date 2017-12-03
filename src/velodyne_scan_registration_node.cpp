@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "lib/VelodyneScanRegistration.h"
+#include "loam_velodyne/VelodyneScanRegistration.h"
 
 
 /** Main node entry point. */

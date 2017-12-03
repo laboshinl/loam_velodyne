@@ -30,7 +30,9 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include "ScanRegistration.h"
+#include "loam_velodyne/ScanRegistration.h"
+#include "loam_velodyne/common.h"
+#include "math_utils.h"
 
 #include <pcl/filters/voxel_grid.h>
 #include <tf/transform_datatypes.h>
@@ -408,13 +410,13 @@ void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
 
   // mark unreliable points as picked
   for (size_t i = startIdx + _config.curvatureRegion; i < endIdx - _config.curvatureRegion; i++) {
-    const PointType& prevPoint = (_laserCloud->points[i - 1]);
-    const PointType& point = (_laserCloud->points[i]);
-    const PointType& nextPoint = (_laserCloud->points[i + 1]);
+    const pcl::PointXYZI& previousPoint = (_laserCloud->points[i - 1]);
+    const pcl::PointXYZI& point = (_laserCloud->points[i]);
+    const pcl::PointXYZI& nextPoint = (_laserCloud->points[i + 1]);
 
-    float diff = calcSquaredDiff(nextPoint, point);
+    float diffNext = calcSquaredDiff(nextPoint, point);
 
-    if (diff > 0.1) {
+    if (diffNext > 0.1) {
       float depth1 = calcPointDistance(point);
       float depth2 = calcPointDistance(nextPoint);
 
@@ -441,10 +443,10 @@ void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
       }
     }
 
-    float diff2 = calcSquaredDiff(point, prevPoint);
+    float diffPrevious = calcSquaredDiff(point, previousPoint);
     float dis = calcSquaredPointDistance(point);
 
-    if (diff > 0.0002 * dis && diff2 > 0.0002 * dis) {
+    if (diffNext > 0.0002 * dis && diffPrevious > 0.0002 * dis) {
       _scanNeighborPicked[i - startIdx] = 1;
     }
   }
@@ -452,46 +454,17 @@ void ScanRegistration::setScanBuffersFor(const size_t& startIdx,
 
 
 
-void ScanRegistration::generateROSMsg(sensor_msgs::PointCloud2& msg,
-                                      const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud)
-{
-  pcl::toROSMsg(*cloud, msg);
-  msg.header.stamp = _sweepStamp;
-  msg.header.frame_id = "/camera";
-}
-
-
-
 void ScanRegistration::publishResult()
 {
   // publish full resolution and feature point clouds
-  sensor_msgs::PointCloud2 laserCloudOutMsg;
-  generateROSMsg(laserCloudOutMsg, _laserCloud);
-  _pubLaserCloud.publish(laserCloudOutMsg);
-
-  sensor_msgs::PointCloud2 cornerPointsSharpMsg;
-  generateROSMsg(cornerPointsSharpMsg, _cornerPointsSharp);
-  _pubCornerPointsSharp.publish(cornerPointsSharpMsg);
-
-  sensor_msgs::PointCloud2 cornerPointsLessSharpMsg;
-  generateROSMsg(cornerPointsLessSharpMsg, _cornerPointsLessSharp);
-  _pubCornerPointsLessSharp.publish(cornerPointsLessSharpMsg);
-
-  sensor_msgs::PointCloud2 surfPointsFlat;
-  generateROSMsg(surfPointsFlat, _surfacePointsFlat);
-  _pubSurfPointsFlat.publish(surfPointsFlat);
-
-  sensor_msgs::PointCloud2 surfPointsLessFlat;
-  generateROSMsg(surfPointsLessFlat, _surfacePointsLessFlat);
-  _pubSurfPointsLessFlat.publish(surfPointsLessFlat);
-
+  publishCloudMsg(_pubLaserCloud,            *_laserCloud,            _sweepStamp, "/camera");
+  publishCloudMsg(_pubCornerPointsSharp,     *_cornerPointsSharp,     _sweepStamp, "/camera");
+  publishCloudMsg(_pubCornerPointsLessSharp, *_cornerPointsLessSharp, _sweepStamp, "/camera");
+  publishCloudMsg(_pubSurfPointsFlat,        *_surfacePointsFlat,     _sweepStamp, "/camera");
+  publishCloudMsg(_pubSurfPointsLessFlat,    *_surfacePointsLessFlat, _sweepStamp, "/camera");
 
   // publish corresponding IMU transformation information
-  sensor_msgs::PointCloud2 imuTransMsg;
-  pcl::toROSMsg(*_imuTrans, imuTransMsg);
-  imuTransMsg.header.stamp = _sweepStamp;
-  imuTransMsg.header.frame_id = "/camera";
-  _pubImuTrans.publish(imuTransMsg);
+  publishCloudMsg(_pubImuTrans,              *_imuTrans,              _sweepStamp, "/camera");
 }
 
 } // end namespace loam

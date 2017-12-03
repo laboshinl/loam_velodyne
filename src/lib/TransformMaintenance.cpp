@@ -30,10 +30,16 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include "TransformMaintenance.h"
+#include "loam_velodyne/TransformMaintenance.h"
 
 
 namespace loam {
+
+using std::sin;
+using std::cos;
+using std::asin;
+using std::atan2;
+
 
 TransformMaintenance::TransformMaintenance()
 {

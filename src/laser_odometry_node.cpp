@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include "lib/LaserOdometry.h"
+#include "loam_velodyne/LaserOdometry.h"
 
 
 /** Main node entry point. */

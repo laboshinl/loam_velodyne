@@ -34,17 +34,14 @@
 #define LOAM_SCANREGISTRATION_H
 
 
+#include "loam_types.h"
 #include "CircularBuffer.h"
-#include "math_utils.h"
-
-#include <loam_velodyne/common.h>
 
 #include <stdint.h>
 #include <vector>
-#include <sensor_msgs/PointCloud2.h>
 #include <ros/node_handle.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/Imu.h>
+#include <pcl/point_cloud.h>
 
 
 namespace loam {
@@ -352,10 +349,6 @@ protected:
    * @param sweepDuration the total duration of the current sweep
    */
   void setIMUTrans(const double& sweepDuration);
-
-  /** \brief Generate a point cloud message for the specified cloud. */
-  void generateROSMsg(sensor_msgs::PointCloud2& msg,
-                      const pcl::PointCloud<pcl::PointXYZI>::Ptr& cloud);
 
   /** \brief Publish the current result via the respective topics. */
   void publishResult();
