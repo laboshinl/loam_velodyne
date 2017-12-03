@@ -190,10 +190,10 @@ private:
   std::vector<size_t> _laserCloudValidInd;
   std::vector<size_t> _laserCloudSurroundInd;
 
-  double _timeLaserCloudCornerLast;   ///< time of current last corner cloud
-  double _timeLaserCloudSurfLast;     ///< time of current last surface cloud
-  double _timeLaserCloudFullRes;      ///< time of current full resolution cloud
-  double _timeLaserOdometry;          ///< time of current laser odometry
+  ros::Time _timeLaserCloudCornerLast;   ///< time of current last corner cloud
+  ros::Time _timeLaserCloudSurfLast;     ///< time of current last surface cloud
+  ros::Time _timeLaserCloudFullRes;      ///< time of current full resolution cloud
+  ros::Time _timeLaserOdometry;          ///< time of current laser odometry
 
   bool _newLaserCloudCornerLast;  ///< flag if a new last corner cloud has been received
   bool _newLaserCloudSurfLast;    ///< flag if a new last surface cloud has been received

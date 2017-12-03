@@ -151,22 +151,22 @@ private:
   pcl::PointCloud<pcl::PointXYZI>::Ptr _surfPointsFlat;         ///< flat surface points cloud
   pcl::PointCloud<pcl::PointXYZI>::Ptr _surfPointsLessFlat;     ///< less flat surface points cloud
   pcl::PointCloud<pcl::PointXYZI>::Ptr _laserCloud;             ///< full resolution cloud
-  pcl::PointCloud<pcl::PointXYZ>::Ptr _imuTrans;                ///< IMU transformation information
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr _lastCornerCloud;    ///< last corner points cloud
   pcl::PointCloud<pcl::PointXYZI>::Ptr _lastSurfaceCloud;   ///< last surface points cloud
+
   pcl::PointCloud<pcl::PointXYZI>::Ptr _laserCloudOri;      ///< point selection
   pcl::PointCloud<pcl::PointXYZI>::Ptr _coeffSel;           ///< point selection coefficients
 
   nanoflann::KdTreeFLANN<pcl::PointXYZI> _lastCornerKDTree;   ///< last corner cloud KD-tree
   nanoflann::KdTreeFLANN<pcl::PointXYZI> _lastSurfaceKDTree;  ///< last surface cloud KD-tree
 
-  double _timeCornerPointsSharp;      ///< time of current sharp corner cloud
-  double _timeCornerPointsLessSharp;  ///< time of current less sharp corner cloud
-  double _timeSurfPointsFlat;         ///< time of current flat surface cloud
-  double _timeSurfPointsLessFlat;     ///< time of current less flat surface cloud
-  double _timeLaserCloudFullRes;      ///< time of current full resolution cloud
-  double _timeImuTrans;               ///< time of current IMU transformation information
+  ros::Time _timeCornerPointsSharp;      ///< time of current sharp corner cloud
+  ros::Time _timeCornerPointsLessSharp;  ///< time of current less sharp corner cloud
+  ros::Time _timeSurfPointsFlat;         ///< time of current flat surface cloud
+  ros::Time _timeSurfPointsLessFlat;     ///< time of current less flat surface cloud
+  ros::Time _timeLaserCloudFullRes;      ///< time of current full resolution cloud
+  ros::Time _timeImuTrans;               ///< time of current IMU transformation information
 
   bool _newCornerPointsSharp;       ///< flag if a new sharp corner cloud has been received
   bool _newCornerPointsLessSharp;   ///< flag if a new less sharp corner cloud has been received
@@ -174,12 +174,6 @@ private:
   bool _newSurfPointsLessFlat;      ///< flag if a new less flat surface cloud has been received
   bool _newLaserCloudFullRes;       ///< flag if a new full resolution cloud has been received
   bool _newImuTrans;                ///< flag if a new IMU transformation information cloud has been received
-
-  nav_msgs::Odometry _laserOdometry;          ///< laser odometry message
-  tf::StampedTransform _laserOdometryTrans;   ///< laser odometry transformation
-
-  size_t _lastCornerCloudSize;    ///< size of the last corner cloud
-  size_t _lastSurfaceCloudSize;   ///< size of the last surface cloud
 
   std::vector<int> _pointSearchCornerInd1;    ///< first corner point search index buffer
   std::vector<int> _pointSearchCornerInd2;    ///< second corner point search index buffer
@@ -196,6 +190,9 @@ private:
 
   Vector3 _imuShiftFromStart;
   Vector3 _imuVeloFromStart;
+
+  nav_msgs::Odometry _laserOdometryMsg;       ///< laser odometry message
+  tf::StampedTransform _laserOdometryTrans;   ///< laser odometry transformation
 
   ros::Publisher _pubLaserCloudCornerLast;  ///< last corner cloud message publisher
   ros::Publisher _pubLaserCloudSurfLast;    ///< last surface cloud message publisher
