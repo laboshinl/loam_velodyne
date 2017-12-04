@@ -2,7 +2,8 @@
 #define LOAM_MATH_UTILS_H
 
 
-#include "loam_velodyne/loam_types.h"
+#include "loam_velodyne/Angle.h"
+#include "loam_velodyne/Vector3.h"
 
 #include <cmath>
 

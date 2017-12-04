@@ -35,7 +35,8 @@
 
 
 #include "common.h"
-#include "loam_types.h"
+#include "Angle.h"
+#include "Vector3.h"
 #include "CircularBuffer.h"
 
 #include <stdint.h>

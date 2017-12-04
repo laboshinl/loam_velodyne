@@ -34,7 +34,7 @@
 #define LOAM_LASERMAPPING_H
 
 
-#include "loam_types.h"
+#include "Twist.h"
 #include "CircularBuffer.h"
 
 #include <ros/ros.h>

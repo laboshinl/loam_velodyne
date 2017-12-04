@@ -34,8 +34,8 @@
 #define LOAM_LASERODOMETRY_H
 
 
-#include "loam_types.h"
-#include "loam_velodyne/nanoflann_pcl.h"
+#include "Twist.h"
+#include "nanoflann_pcl.h"
 
 #include <ros/node_handle.h>
 #include <sensor_msgs/PointCloud2.h>
