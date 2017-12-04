@@ -30,37 +30,58 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#ifndef LOAM_COMMON_H
-#define LOAM_COMMON_H
+#ifndef LOAM_VELODYNESCANREGISTRATION_H
+#define LOAM_VELODYNESCANREGISTRATION_H
 
-#include <ros/ros.h>
+
+#include "loam_velodyne/ScanRegistration.h"
+
 #include <sensor_msgs/PointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_types.h>
 
 
 namespace loam {
 
-/** \brief Construct a new point cloud message from the specified information and publish it via the given publisher.
+/** \brief Class for registering Velodyne VLP-16 scans.
  *
- * @tparam PointT the point type
- * @param publisher the publisher instance
- * @param cloud the cloud to publish
- * @param stamp the time stamp of the cloud message
- * @param frameID the message frame ID
  */
-template <typename PointT>
-inline void publishCloudMsg(ros::Publisher& publisher,
-                            const pcl::PointCloud<PointT>& cloud,
-                            const ros::Time& stamp,
-                            std::string frameID) {
-  sensor_msgs::PointCloud2 msg;
-  pcl::toROSMsg(cloud, msg);
-  msg.header.stamp = stamp;
-  msg.header.frame_id = frameID;
-  publisher.publish(msg);
-}
+class VelodyneScanRegistration : virtual public ScanRegistration {
+public:
+  VelodyneScanRegistration(const float& scanPeriod,
+                           const uint16_t& nScanRings,
+                           const RegistrationParams& config = RegistrationParams(),
+                           const size_t& imuHistorySize = 200);
+
+
+  /** \brief Setup component in active mode.
+   *
+   * @param node the ROS node handle
+   * @param privateNode the private ROS node handle
+   */
+  bool setup(ros::NodeHandle& node,
+             ros::NodeHandle& privateNode);
+
+  /** \brief Handler method for input cloud messages.
+   *
+   * @param laserCloudMsg the new input cloud message to process
+   */
+  void handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg);
+
+  /** \brief Process a new input cloud.
+   *
+   * @param laserCloudIn the new input cloud to process
+   * @param scanTime the scan (message) timestamp
+   */
+  void process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
+               const ros::Time& scanTime);
+
+protected:
+  int _systemDelay;             ///< system startup delay counter
+  const uint16_t _nScanRings;   ///< number of scan rings
+
+  ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber
+};
 
 } // end namespace loam
 
-#endif // LOAM_COMMON_H
+
+#endif //LOAM_VELODYNESCANREGISTRATION_H
