@@ -2,8 +2,10 @@
 
   <arg name="rviz" default="true" />
 
-  <node pkg="loam_velodyne" type="scanRegistration" name="scanRegistration" output="screen">
-      <remap from="/velodyne_points" to="/velodyne_points" />
+  <node pkg="loam_velodyne" type="multiScanRegistration" name="multiScanRegistration" output="screen">
+      <param name="lidar" value="VLP-16" /> <!-- options: VLP-16  HDL-32  HDL-64E -->
+      <param name="scanPeriod" value="0.1" />
+      <remap from="/multi_scan_points" to="/velodyne_points" />
       <remap from="/imu/data" to="/raw_imu" />  
       <!-- <remap from="/imu/data" to="/djiros/imu" />   -->
   </node>

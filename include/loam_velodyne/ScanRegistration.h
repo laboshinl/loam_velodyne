@@ -64,22 +64,33 @@ enum PointLabel {
 
 
 /** Scan Registration configuration parameters. */
-typedef struct RegistrationParams {
-  RegistrationParams(int nFeatureRegions_ = 6,
-                     int curvatureRegion_ = 5,
-                     int maxCornerSharp_ = 2,
-                     int maxSurfaceFlat_ = 4,
-                     float lessFlatFilterSize_ = 0.2,
-                     float surfaceCurvatureThreshold_ = 0.1)
-        : nFeatureRegions(nFeatureRegions_),
-          curvatureRegion(curvatureRegion_),
-          maxCornerSharp(maxCornerSharp_),
-          maxCornerLessSharp(10 * maxCornerSharp_),
-          maxSurfaceFlat(maxSurfaceFlat_),
-          lessFlatFilterSize(lessFlatFilterSize_),
-          surfaceCurvatureThreshold(surfaceCurvatureThreshold_) {};
+class RegistrationParams {
+public:
+  RegistrationParams(const float& scanPeriod_ = 0.1,
+                     const int& imuHistorySize_ = 200,
+                     const int& nFeatureRegions_ = 6,
+                     const int& curvatureRegion_ = 5,
+                     const int& maxCornerSharp_ = 2,
+                     const int& maxSurfaceFlat_ = 4,
+                     const float& lessFlatFilterSize_ = 0.2,
+                     const float& surfaceCurvatureThreshold_ = 0.1);
 
-  ~RegistrationParams() {};
+
+  /** \brief Parse node parameter.
+   *
+   * @param nh the ROS node handle
+   * @return true, if all specified parameters are valid, false if at least one specified parameter is invalid
+   */
+  bool parseParams(const ros::NodeHandle& nh);
+
+  /** \brief Print parameters to ROS_INFO. */
+  void print();
+
+  /** The time per scan. */
+  float scanPeriod;
+
+  /** The size of the IMU history state buffer. */
+  int imuHistorySize;
 
   /** The number of (equally sized) regions used to distribute the feature extraction within a scan. */
   int nFeatureRegions;
@@ -101,98 +112,7 @@ typedef struct RegistrationParams {
 
   /** The curvature threshold below / above a point is considered a flat / corner point. */
   float surfaceCurvatureThreshold;
-
-
-  /** \brief Parse node parameter.
-   *
-   * @param nh the ROS node handle
-   * @return true, if all specified parameters are valid, false if at least one specified parameter is invalid
-   */
-  bool parseParams(const ros::NodeHandle& nh) {
-    bool success = true;
-    int iParam = 0;
-    float fParam = 0;
-
-    if (nh.getParam("featureRegions", iParam)) {
-      if (iParam < 1) {
-        ROS_ERROR("Invalid featureRegions parameter: %d (expected >= 1)", iParam);
-        success = false;
-      } else {
-        nFeatureRegions = iParam;
-      }
-    }
-
-    if (nh.getParam("curvatureRegion", iParam)) {
-      if (iParam < 1) {
-        ROS_ERROR("Invalid curvatureRegion parameter: %d (expected >= 1)", iParam);
-        success = false;
-      } else {
-        curvatureRegion = iParam;
-      }
-    }
-
-    if (nh.getParam("maxCornerSharp", iParam)) {
-      if (iParam < 1) {
-        ROS_ERROR("Invalid maxCornerSharp parameter: %d (expected >= 1)", iParam);
-        success = false;
-      } else {
-        maxCornerSharp = iParam;
-        maxCornerLessSharp = 10 * iParam;
-      }
-    }
-
-    if (nh.getParam("maxCornerLessSharp", iParam)) {
-      if (iParam < maxCornerSharp) {
-        ROS_ERROR("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", iParam, maxCornerSharp);
-        success = false;
-      } else {
-        maxCornerLessSharp = iParam;
-      }
-    }
-
-    if (nh.getParam("maxSurfaceFlat", iParam)) {
-      if (iParam < 1) {
-        ROS_ERROR("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", iParam);
-        success = false;
-      } else {
-        maxSurfaceFlat = iParam;
-      }
-    }
-
-    if (nh.getParam("surfaceCurvatureThreshold", fParam)) {
-      if (fParam < 0.001) {
-        ROS_ERROR("Invalid surfaceCurvatureThreshold parameter: %f (expected >= 0.001)", fParam);
-        success = false;
-      } else {
-        surfaceCurvatureThreshold = fParam;
-      }
-    }
-
-    if (nh.getParam("lessFlatFilterSize", fParam)) {
-      if (fParam < 0.001) {
-        ROS_ERROR("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", fParam);
-        success = false;
-      } else {
-        lessFlatFilterSize = fParam;
-      }
-    }
-
-    return success;
-  };
-
-  /** \brief Print parameters to ROS_INFO. */
-  void print()
-  {
-    ROS_INFO_STREAM(" ===== scan registration parameters =====" << std::endl
-        << "  - Using  " << nFeatureRegions << "  feature regions per scan." << std::endl
-        << "  - Using  +/- " << curvatureRegion << "  points for curvature calculation." << std::endl
-        << "  - Using at most  " << maxCornerSharp << "  sharp" << std::endl
-        << "              and  " << maxCornerLessSharp << "  less sharp corner points per feature region." << std::endl
-        << "  - Using at most  " << maxSurfaceFlat << "  flat surface points per feature region." << std::endl
-        << "  - Using  " << surfaceCurvatureThreshold << "  as surface curvature threshold." << std::endl
-        << "  - Using  " << lessFlatFilterSize << "  as less flat surface points voxel filter size.");
-  };
-} RegistrationParams;
+};
 
 
 
@@ -258,9 +178,7 @@ typedef struct IMUState {
  */
 class ScanRegistration {
 public:
-  explicit ScanRegistration(const float& scanPeriod,
-                            const RegistrationParams& config = RegistrationParams(),
-                            const size_t& imuHistorySize = 200);
+  explicit ScanRegistration(const RegistrationParams& config = RegistrationParams());
 
   /** \brief Setup component.
    *
@@ -349,7 +267,6 @@ private:
 
 
 protected:
-  const float _scanPeriod;      ///< time per scan
   RegistrationParams _config;   ///< registration parameter
 
   ros::Time _sweepStart;                  ///< time stamp of beginning of current sweep

@@ -46,6 +46,27 @@ public:
     return _capacity;
   }
 
+  /** \brief Ensure that this buffer has at least the required capacity.
+   *
+   * @param reqCapacity the minimum required capacity
+   */
+  void ensureCapacity(const int& reqCapacity) {
+    if (reqCapacity > 0 && _capacity < reqCapacity) {
+      // create new buffer and copy (valid) entries
+      T* newBuffer = new T[reqCapacity];
+      for (size_t i = 0; i < _size; i++) {
+        newBuffer[i] = (*this)[i];
+      }
+
+      // switch buffer pointers and delete old buffer
+      T* oldBuffer = _buffer;
+      _buffer = newBuffer;
+      _startIdx = 0;
+
+      delete[] oldBuffer;
+    }
+  }
+
   /** \brief Check if the buffer is empty.
    *
    * @return true if the buffer is empty, false otherwise

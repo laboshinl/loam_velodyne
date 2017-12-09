@@ -39,17 +39,149 @@
 
 namespace loam {
 
-ScanRegistration::ScanRegistration(const float& scanPeriod,
-                                   const RegistrationParams& config,
-                                   const size_t& imuHistorySize)
-      : _scanPeriod(scanPeriod),
-        _config(config),
+
+RegistrationParams::RegistrationParams(const float& scanPeriod_,
+                                       const int& imuHistorySize_,
+                                       const int& nFeatureRegions_,
+                                       const int& curvatureRegion_,
+                                       const int& maxCornerSharp_,
+                                       const int& maxSurfaceFlat_,
+                                       const float& lessFlatFilterSize_,
+                                       const float& surfaceCurvatureThreshold_)
+    : scanPeriod(scanPeriod_),
+      imuHistorySize(imuHistorySize_),
+      nFeatureRegions(nFeatureRegions_),
+      curvatureRegion(curvatureRegion_),
+      maxCornerSharp(maxCornerSharp_),
+      maxCornerLessSharp(10 * maxCornerSharp_),
+      maxSurfaceFlat(maxSurfaceFlat_),
+      lessFlatFilterSize(lessFlatFilterSize_),
+      surfaceCurvatureThreshold(surfaceCurvatureThreshold_)
+{
+
+};
+
+
+
+bool RegistrationParams::parseParams(const ros::NodeHandle& nh) {
+  bool success = true;
+  int iParam = 0;
+  float fParam = 0;
+
+  if (nh.getParam("scanPeriod", fParam)) {
+    if (fParam <= 0) {
+      ROS_ERROR("Invalid scanPeriod parameter: %f (expected > 0)", fParam);
+      success = false;
+    } else {
+      scanPeriod = fParam;
+    }
+  }
+
+  if (nh.getParam("imuHistorySize", iParam)) {
+    if (iParam < 1) {
+      ROS_ERROR("Invalid imuHistorySize parameter: %d (expected >= 1)", iParam);
+      success = false;
+    } else {
+      imuHistorySize = iParam;
+    }
+  }
+
+  if (nh.getParam("featureRegions", iParam)) {
+    if (iParam < 1) {
+      ROS_ERROR("Invalid featureRegions parameter: %d (expected >= 1)", iParam);
+      success = false;
+    } else {
+      nFeatureRegions = iParam;
+    }
+  }
+
+  if (nh.getParam("curvatureRegion", iParam)) {
+    if (iParam < 1) {
+      ROS_ERROR("Invalid curvatureRegion parameter: %d (expected >= 1)", iParam);
+      success = false;
+    } else {
+      curvatureRegion = iParam;
+    }
+  }
+
+  if (nh.getParam("maxCornerSharp", iParam)) {
+    if (iParam < 1) {
+      ROS_ERROR("Invalid maxCornerSharp parameter: %d (expected >= 1)", iParam);
+      success = false;
+    } else {
+      maxCornerSharp = iParam;
+      maxCornerLessSharp = 10 * iParam;
+    }
+  }
+
+  if (nh.getParam("maxCornerLessSharp", iParam)) {
+    if (iParam < maxCornerSharp) {
+      ROS_ERROR("Invalid maxCornerLessSharp parameter: %d (expected >= %d)", iParam, maxCornerSharp);
+      success = false;
+    } else {
+      maxCornerLessSharp = iParam;
+    }
+  }
+
+  if (nh.getParam("maxSurfaceFlat", iParam)) {
+    if (iParam < 1) {
+      ROS_ERROR("Invalid maxSurfaceFlat parameter: %d (expected >= 1)", iParam);
+      success = false;
+    } else {
+      maxSurfaceFlat = iParam;
+    }
+  }
+
+  if (nh.getParam("surfaceCurvatureThreshold", fParam)) {
+    if (fParam < 0.001) {
+      ROS_ERROR("Invalid surfaceCurvatureThreshold parameter: %f (expected >= 0.001)", fParam);
+      success = false;
+    } else {
+      surfaceCurvatureThreshold = fParam;
+    }
+  }
+
+  if (nh.getParam("lessFlatFilterSize", fParam)) {
+    if (fParam < 0.001) {
+      ROS_ERROR("Invalid lessFlatFilterSize parameter: %f (expected >= 0.001)", fParam);
+      success = false;
+    } else {
+      lessFlatFilterSize = fParam;
+    }
+  }
+
+  return success;
+}
+
+
+
+void RegistrationParams::print()
+{
+  ROS_INFO_STREAM(" ===== scan registration parameters =====" << std::endl
+     << "  - Using  " << scanPeriod << "  as scan period." << std::endl
+     << "  - Using  " << imuHistorySize << "  as IMU state history size." << std::endl
+     << "  - Using  " << nFeatureRegions << "  feature regions per scan." << std::endl
+     << "  - Using  +/- " << curvatureRegion << "  points for curvature calculation." << std::endl
+     << "  - Using at most  " << maxCornerSharp << "  sharp" << std::endl
+     << "              and  " << maxCornerLessSharp << "  less sharp corner points per feature region." << std::endl
+     << "  - Using at most  " << maxSurfaceFlat << "  flat surface points per feature region." << std::endl
+     << "  - Using  " << surfaceCurvatureThreshold << "  as surface curvature threshold." << std::endl
+     << "  - Using  " << lessFlatFilterSize << "  as less flat surface points voxel filter size.");
+}
+
+
+
+
+
+
+ScanRegistration::ScanRegistration(const RegistrationParams& config)
+      : _config(config),
         _sweepStart(),
         _scanTime(),
         _imuStart(),
         _imuCur(),
         _imuIdx(0),
-        _imuHistory(imuHistorySize),
+        _imuHistory(_config.imuHistorySize),
         _laserCloud(),
         _cornerPointsSharp(),
         _cornerPointsLessSharp(),
@@ -62,7 +194,7 @@ ScanRegistration::ScanRegistration(const float& scanPeriod,
         _scanNeighborPicked()
 {
 
-};
+}
 
 
 
@@ -73,6 +205,7 @@ bool ScanRegistration::setup(ros::NodeHandle& node,
     return false;
   }
   _config.print();
+  _imuHistory.ensureCapacity(_config.imuHistorySize);
 
   // subscribe to IMU topic
   _subImu = node.subscribe<sensor_msgs::Imu>("/imu/data", 50, &ScanRegistration::handleIMUMessage, this);

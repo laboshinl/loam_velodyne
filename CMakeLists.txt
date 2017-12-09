@@ -31,8 +31,8 @@ add_definitions( -march=native )
 
 add_subdirectory(src/lib)
 
-add_executable(scanRegistration src/velodyne_scan_registration_node.cpp)
-target_link_libraries(scanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
+add_executable(multiScanRegistration src/multi_scan_registration_node.cpp)
+target_link_libraries(multiScanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
 
 add_executable(laserOdometry src/laser_odometry_node.cpp)
 target_link_libraries(laserOdometry ${catkin_LIBRARIES} ${PCL_LIBRARIES} loam )
@@ -57,7 +57,7 @@ if (CATKIN_ENABLE_TESTING)
   add_rostest(${PROJECT_BINARY_DIR}/test/loam.test
     DEPENDENCIES
       ${PROJECT_NAME}_test_data
-      scanRegistration
+      multiScanRegistration
       laserOdometry
       laserMapping
       transformMaintenance)
