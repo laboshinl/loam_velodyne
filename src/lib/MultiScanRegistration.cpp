@@ -88,7 +88,7 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node,
     return false;
   }
 
-  // parse scan mapping params
+  // fetch scan mapping params
   std::string lidarName;
 
   if (privateNode.getParam("lidar", lidarName)) {
@@ -103,8 +103,10 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node,
       return false;
     }
 
+    ROS_INFO("Set  %s  scan mapper.", lidarName.c_str());
     if (!privateNode.hasParam("scanPeriod")) {
       _config.scanPeriod = 0.1;
+      ROS_INFO("Set scanPeriod: %f", _config.scanPeriod);
     }
   } else {
     float vAngleMin, vAngleMax;
@@ -122,6 +124,7 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node,
       }
 
       _scanMapper.set(vAngleMin, vAngleMax, nScanRings);
+      ROS_INFO("Set linear scan mapper from %g to %g degrees with %d scan rings.", vAngleMin, vAngleMax, nScanRings);
     }
   }
 

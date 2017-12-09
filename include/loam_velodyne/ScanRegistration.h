@@ -83,9 +83,6 @@ public:
    */
   bool parseParams(const ros::NodeHandle& nh);
 
-  /** \brief Print parameters to ROS_INFO. */
-  void print();
-
   /** The time per scan. */
   float scanPeriod;
 

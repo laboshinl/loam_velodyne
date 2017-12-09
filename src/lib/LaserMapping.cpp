@@ -48,12 +48,16 @@ using std::atan2;
 using std::pow;
 
 
-LaserMapping::LaserMapping(const float& scanPeriod)
+LaserMapping::LaserMapping(const float& scanPeriod,
+                           const size_t& maxIterations)
       : _scanPeriod(scanPeriod),
         _stackFrameNum(1),
         _mapFrameNum(5),
         _frameCount(0),
         _mapFrameCount(0),
+        _maxIterations(maxIterations),
+        _deltaTAbort(0.05),
+        _deltaRAbort(0.05),
         _laserCloudCenWidth(10),
         _laserCloudCenHeight(5),
         _laserCloudCenDepth(10),
@@ -108,10 +112,86 @@ LaserMapping::LaserMapping(const float& scanPeriod)
 bool LaserMapping::setup(ros::NodeHandle& node,
                          ros::NodeHandle& privateNode)
 {
+  // fetch laser mapping params
+  float fParam;
+  int iParam;
+
+  if (privateNode.getParam("scanPeriod", fParam)) {
+    if (fParam <= 0) {
+      ROS_ERROR("Invalid scanPeriod parameter: %f (expected > 0)", fParam);
+      return false;
+    } else {
+      _scanPeriod = fParam;
+      ROS_INFO("Set scanPeriod: %g", fParam);
+    }
+  }
+
+  if (privateNode.getParam("maxIterations", iParam)) {
+    if (iParam < 1) {
+      ROS_ERROR("Invalid maxIterations parameter: %d (expected > 0)", iParam);
+      return false;
+    } else {
+      _maxIterations = iParam;
+      ROS_INFO("Set maxIterations: %d", iParam);
+    }
+  }
+
+  if (privateNode.getParam("deltaTAbort", fParam)) {
+    if (fParam <= 0) {
+      ROS_ERROR("Invalid deltaTAbort parameter: %f (expected > 0)", fParam);
+      return false;
+    } else {
+      _deltaTAbort = fParam;
+      ROS_INFO("Set deltaTAbort: %g", fParam);
+    }
+  }
+
+  if (privateNode.getParam("deltaRAbort", fParam)) {
+    if (fParam <= 0) {
+      ROS_ERROR("Invalid deltaRAbort parameter: %f (expected > 0)", fParam);
+      return false;
+    } else {
+      _deltaRAbort = fParam;
+      ROS_INFO("Set deltaRAbort: %g", fParam);
+    }
+  }
+
+  if (privateNode.getParam("cornerFilterSize", fParam)) {
+    if (fParam < 0.001) {
+      ROS_ERROR("Invalid cornerFilterSize parameter: %f (expected >= 0.001)", fParam);
+      return false;
+    } else {
+      _downSizeFilterCorner.setLeafSize(fParam, fParam, fParam);
+      ROS_INFO("Set corner down size filter leaf size: %g", fParam);
+    }
+  }
+
+  if (privateNode.getParam("surfaceFilterSize", fParam)) {
+    if (fParam < 0.001) {
+      ROS_ERROR("Invalid surfaceFilterSize parameter: %f (expected >= 0.001)", fParam);
+      return false;
+    } else {
+      _downSizeFilterSurf.setLeafSize(fParam, fParam, fParam);
+      ROS_INFO("Set surface down size filter leaf size: %g", fParam);
+    }
+  }
+
+  if (privateNode.getParam("mapFilterSize", fParam)) {
+    if (fParam < 0.001) {
+      ROS_ERROR("Invalid mapFilterSize parameter: %f (expected >= 0.001)", fParam);
+      return false;
+    } else {
+      _downSizeFilterMap.setLeafSize(fParam, fParam, fParam);
+      ROS_INFO("Set map down size filter leaf size: %g", fParam);
+    }
+  }
+
+
   // advertise laser mapping topics
   _pubLaserCloudSurround = node.advertise<sensor_msgs::PointCloud2> ("/laser_cloud_surround", 1);
   _pubLaserCloudFullRes = node.advertise<sensor_msgs::PointCloud2> ("/velodyne_cloud_registered", 2);
   _pubOdomAftMapped = node.advertise<nav_msgs::Odometry> ("/aft_mapped_to_init", 5);
+
 
   // subscribe to laser odometry topics
   _subLaserCloudCornerLast = node.subscribe<sensor_msgs::PointCloud2>
@@ -779,7 +859,7 @@ void LaserMapping::optimizeTransformTobeMapped()
   pcl::PointCloud<pcl::PointXYZI> laserCloudOri;
   pcl::PointCloud<pcl::PointXYZI> coeffSel;
 
-  for (int iterCount = 0; iterCount < 10; iterCount++) {
+  for (size_t iterCount = 0; iterCount < _maxIterations; iterCount++) {
     laserCloudOri.clear();
     coeffSel.clear();
 
@@ -1025,7 +1105,7 @@ void LaserMapping::optimizeTransformTobeMapped()
                         pow(matX(4, 0) * 100, 2) +
                         pow(matX(5, 0) * 100, 2));
 
-    if (deltaR < 0.05 && deltaT < 0.05) {
+    if (deltaR < _deltaRAbort && deltaT < _deltaTAbort) {
       break;
     }
   }

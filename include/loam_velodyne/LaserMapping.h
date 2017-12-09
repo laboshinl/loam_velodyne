@@ -87,7 +87,8 @@ typedef struct IMUState2 {
  */
 class LaserMapping {
 public:
-  explicit LaserMapping(const float& scanPeriod);
+  explicit LaserMapping(const float& scanPeriod = 0.1,
+                        const size_t& maxIterations = 10);
 
   /** \brief Setup component in active mode.
    *
@@ -154,11 +155,15 @@ protected:
 
 
 private:
-  const float _scanPeriod;
+  float _scanPeriod;          ///< time per scan
   const int _stackFrameNum;
   const int _mapFrameNum;
   long _frameCount;
   long _mapFrameCount;
+
+  size_t _maxIterations;  ///< maximum number of iterations
+  float _deltaTAbort;     ///< optimization abort threshold for deltaT
+  float _deltaRAbort;     ///< optimization abort threshold for deltaR
 
   int _laserCloudCenWidth;
   int _laserCloudCenHeight;
