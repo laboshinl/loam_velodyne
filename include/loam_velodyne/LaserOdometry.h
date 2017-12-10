@@ -53,8 +53,9 @@ namespace loam {
  */
 class LaserOdometry {
 public:
-  explicit LaserOdometry(const float& scanPeriod,
-                         const uint16_t& ioRatio = 2);
+  explicit LaserOdometry(const float& scanPeriod = 0.1,
+                         const uint16_t& ioRatio = 2,
+                         const size_t& maxIterations = 25);
 
   /** \brief Setup component.
    *
@@ -141,10 +142,14 @@ protected:
   void publishResult();
 
 private:
-  const float _scanPeriod;  ///< time per scan
-  const uint16_t _ioRatio;  ///< ratio of input to output frames
-  bool _systemInited;       ///< initialization flag
-  long _frameCount;         ///< number of processed frames
+  float _scanPeriod;       ///< time per scan
+  uint16_t _ioRatio;       ///< ratio of input to output frames
+  bool _systemInited;      ///< initialization flag
+  long _frameCount;        ///< number of processed frames
+
+  size_t _maxIterations;   ///< maximum number of iterations
+  float _deltaTAbort;     ///< optimization abort threshold for deltaT
+  float _deltaRAbort;     ///< optimization abort threshold for deltaR
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr _cornerPointsSharp;      ///< sharp corner points cloud
   pcl::PointCloud<pcl::PointXYZI>::Ptr _cornerPointsLessSharp;  ///< less sharp corner points cloud

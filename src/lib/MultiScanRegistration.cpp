@@ -30,7 +30,7 @@
 //   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
 //     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
 
-#include "loam_velodyne/VelodyneScanRegistration.h"
+#include "loam_velodyne/MultiScanRegistration.h"
 #include "math_utils.h"
 
 #include <pcl_conversions/pcl_conversions.h>
@@ -38,35 +38,107 @@
 
 namespace loam {
 
-VelodyneScanRegistration::VelodyneScanRegistration(const float& scanPeriod,
-                                                   const uint16_t& nScanRings,
-                                                   const RegistrationParams& config,
-                                                   const size_t& imuHistorySize)
-      : ScanRegistration(scanPeriod, config, imuHistorySize),
-        _systemDelay(20),
-        _nScanRings(nScanRings)
+MultiScanMapper::MultiScanMapper(const float& lowerBound,
+                                 const float& upperBound,
+                                 const uint16_t& nScanRings)
+    : _lowerBound(lowerBound),
+      _upperBound(upperBound),
+      _nScanRings(nScanRings),
+      _factor((nScanRings - 1) / (upperBound - lowerBound))
+{
+
+}
+
+void MultiScanMapper::set(const float &lowerBound,
+                          const float &upperBound,
+                          const uint16_t &nScanRings)
+{
+  _lowerBound = lowerBound;
+  _upperBound = upperBound;
+  _nScanRings = nScanRings;
+  _factor = (nScanRings - 1) / (upperBound - lowerBound);
+}
+
+
+
+int MultiScanMapper::getRingForAngle(const float& angle) {
+  return int(((angle * 180 / M_PI) - _lowerBound) * _factor + 0.5);
+}
+
+
+
+
+
+
+MultiScanRegistration::MultiScanRegistration(const MultiScanMapper& scanMapper,
+                                             const RegistrationParams& config)
+    : ScanRegistration(config),
+      _systemDelay(SYSTEM_DELAY),
+      _scanMapper(scanMapper)
 {
 
 };
 
 
 
-bool VelodyneScanRegistration::setup(ros::NodeHandle& node,
-                                     ros::NodeHandle& privateNode)
+bool MultiScanRegistration::setup(ros::NodeHandle& node,
+                                  ros::NodeHandle& privateNode)
 {
   if (!ScanRegistration::setup(node, privateNode)) {
     return false;
   }
 
+  // fetch scan mapping params
+  std::string lidarName;
+
+  if (privateNode.getParam("lidar", lidarName)) {
+    if (lidarName == "VLP-16") {
+      _scanMapper = MultiScanMapper::Velodyne_VLP_16();
+    } else if (lidarName == "HDL-32") {
+      _scanMapper = MultiScanMapper::Velodyne_HDL_32();
+    } else if (lidarName == "HDL-64E") {
+      _scanMapper = MultiScanMapper::Velodyne_HDL_64E();
+    } else {
+      ROS_ERROR("Invalid lidar parameter: %s (only \"VLP-16\", \"HDL-32\" and \"HDL-64E\" are supported)", lidarName.c_str());
+      return false;
+    }
+
+    ROS_INFO("Set  %s  scan mapper.", lidarName.c_str());
+    if (!privateNode.hasParam("scanPeriod")) {
+      _config.scanPeriod = 0.1;
+      ROS_INFO("Set scanPeriod: %f", _config.scanPeriod);
+    }
+  } else {
+    float vAngleMin, vAngleMax;
+    int nScanRings;
+
+    if (privateNode.getParam("minVerticalAngle", vAngleMin) &&
+        privateNode.getParam("maxVerticalAngle", vAngleMax) &&
+        privateNode.getParam("nScanRings", nScanRings)) {
+      if (vAngleMin >= vAngleMax) {
+        ROS_ERROR("Invalid vertical range (min >= max)");
+        return false;
+      } else if (nScanRings < 2) {
+        ROS_ERROR("Invalid number of scan rings (n < 2)");
+        return false;
+      }
+
+      _scanMapper.set(vAngleMin, vAngleMax, nScanRings);
+      ROS_INFO("Set linear scan mapper from %g to %g degrees with %d scan rings.", vAngleMin, vAngleMax, nScanRings);
+    }
+  }
+
+
+  // subscribe to input cloud topic
   _subLaserCloud = node.subscribe<sensor_msgs::PointCloud2>
-      ("/velodyne_points", 2, &VelodyneScanRegistration::handleCloudMessage, this);
+      ("/multi_scan_points", 2, &MultiScanRegistration::handleCloudMessage, this);
 
   return true;
 }
 
 
 
-void VelodyneScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
+void MultiScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 {
   if (_systemDelay > 0) {
     _systemDelay--;
@@ -82,8 +154,8 @@ void VelodyneScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2
 
 
 
-void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
-                                       const ros::Time& scanTime)
+void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
+                                    const ros::Time& scanTime)
 {
   size_t cloudSize = laserCloudIn.size();
 
@@ -102,7 +174,7 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
 
   bool halfPassed = false;
   pcl::PointXYZI point;
-  std::vector<pcl::PointCloud<pcl::PointXYZI> > laserCloudScans(_nScanRings);
+  std::vector<pcl::PointCloud<pcl::PointXYZI> > laserCloudScans(_scanMapper.getNumberOfScanRings());
 
   // extract valid points from input cloud
   for (int i = 0; i < cloudSize; i++) {
@@ -123,11 +195,9 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
     }
 
     // calculate vertical point angle and scan ID
-    float angle = rad2deg(std::atan(point.y / std::sqrt(point.x * point.x + point.z * point.z)));
-    int roundedAngle = int(angle + (angle < 0.0 ? -0.5 : 0.5));
-    int scanID = roundedAngle > 0 ? roundedAngle : roundedAngle + (_nScanRings - 1);
-
-    if (scanID >= _nScanRings || scanID < 0 ){
+    float angle = std::atan(point.y / std::sqrt(point.x * point.x + point.z * point.z));
+    int scanID = _scanMapper.getRingForAngle(angle);
+    if (scanID >= _scanMapper.getNumberOfScanRings() || scanID < 0 ){
       continue;
     }
 
@@ -154,7 +224,7 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
     }
 
     // calculate relative scan time based on point orientation
-    float relTime = _scanPeriod * (ori - startOri) / (endOri - startOri);
+    float relTime = _config.scanPeriod * (ori - startOri) / (endOri - startOri);
     point.intensity = scanID + relTime;
 
     // project point to the start of the sweep using corresponding IMU data
@@ -168,7 +238,7 @@ void VelodyneScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& las
 
   // construct sorted full resolution cloud
   cloudSize = 0;
-  for (int i = 0; i < _nScanRings; i++) {
+  for (int i = 0; i < _scanMapper.getNumberOfScanRings(); i++) {
     _laserCloud += laserCloudScans[i];
 
     IndexRange range(cloudSize, 0);

@@ -1,7 +1,7 @@
 add_library(loam
             math_utils.h
             ScanRegistration.cpp
-            VelodyneScanRegistration.cpp
+            MultiScanRegistration.cpp
             LaserOdometry.cpp
             LaserMapping.cpp
             TransformMaintenance.cpp)
