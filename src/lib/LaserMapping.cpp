@@ -507,10 +507,10 @@ void LaserMapping::process()
     for (int j = 0; j < _laserCloudHeight; j++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
       for (int i = _laserCloudWidth - 1; i >= 1; i--) {
-        std::swap( _laserCloudCornerArray[ toIndex(i, j, k) ],
-                   _laserCloudCornerArray[ toIndex(i+1, j, k) ]);
-        std::swap( _laserCloudSurfArray[ toIndex(i, j, k) ],
-                   _laserCloudSurfArray[ toIndex(i+1, j, k) ]);
+        const size_t indexA = toIndex(i, j, k);
+        const size_t indexB = toIndex(i-1, j, k);
+        std::swap( _laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB] );
+        std::swap( _laserCloudSurfArray[indexA],   _laserCloudSurfArray[indexB]);
         }
       }
     }
@@ -522,10 +522,10 @@ void LaserMapping::process()
     for (int j = 0; j < _laserCloudHeight; j++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
        for (int i = 0; i < _laserCloudWidth - 1; i++) {
-         std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
-                   _laserCloudCornerArray[ toIndex(i+1, j, k) ]);
-         std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
-                   _laserCloudSurfArray[ toIndex(i+1, j, k) ]);
+         const size_t indexA = toIndex(i, j, k);
+         const size_t indexB = toIndex(i+1, j, k);
+         std::swap( _laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB] );
+         std::swap( _laserCloudSurfArray[indexA],   _laserCloudSurfArray[indexB]);
         }
       }
     }
@@ -537,10 +537,10 @@ void LaserMapping::process()
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
         for (int j = _laserCloudHeight - 1; j >= 1; j--) {
-          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
-                    _laserCloudCornerArray[ toIndex(i, j-1, k) ]);
-          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
-                    _laserCloudSurfArray[ toIndex(i, j-1, k) ]);
+          const size_t indexA = toIndex(i, j, k);
+          const size_t indexB = toIndex(i, j-1, k);
+          std::swap( _laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB] );
+          std::swap( _laserCloudSurfArray[indexA],   _laserCloudSurfArray[indexB]);
         }
       }
     }
@@ -552,10 +552,10 @@ void LaserMapping::process()
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
         for (int j = 0; j < _laserCloudHeight - 1; j++) {
-          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
-                    _laserCloudCornerArray[ toIndex(i, j+1, k) ]);
-          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
-                    _laserCloudSurfArray[ toIndex(i, j+1, k) ]);
+          const size_t indexA = toIndex(i, j, k);
+          const size_t indexB = toIndex(i, j+1, k);
+          std::swap( _laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB] );
+          std::swap( _laserCloudSurfArray[indexA],   _laserCloudSurfArray[indexB]);
         }
       }
     }
@@ -567,10 +567,10 @@ void LaserMapping::process()
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int j = 0; j < _laserCloudHeight; j++) {
         for (int k = _laserCloudDepth - 1; k >= 1; k--) {
-          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
-                    _laserCloudCornerArray[ toIndex(i, j, k-1) ]);
-          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
-                    _laserCloudSurfArray[ toIndex(i, j, k-1) ]);
+          const size_t indexA = toIndex(i, j, k);
+          const size_t indexB = toIndex(i, j, k-1);
+          std::swap( _laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB] );
+          std::swap( _laserCloudSurfArray[indexA],   _laserCloudSurfArray[indexB]);
         }
       }
     }
@@ -582,10 +582,10 @@ void LaserMapping::process()
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int j = 0; j < _laserCloudHeight; j++) {
         for (int k = 0; k < _laserCloudDepth - 1; k++) {
-          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
-                    _laserCloudCornerArray[ toIndex(i, j, k+1) ]);
-          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
-                    _laserCloudSurfArray[ toIndex(i, j, k+1) ]);
+          const size_t indexA = toIndex(i, j, k);
+          const size_t indexB = toIndex(i, j, k+1);
+          std::swap( _laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB] );
+          std::swap( _laserCloudSurfArray[indexA],   _laserCloudSurfArray[indexB]);
         }
       }
     }
