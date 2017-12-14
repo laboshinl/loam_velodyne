@@ -37,6 +37,7 @@
 #include <ros/node_handle.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
+#include <loam_velodyne/Twist.h>
 
 namespace loam {
 
@@ -73,11 +74,11 @@ protected:
 
 
 private:
-  float _transformSum[6];
-  float _transformIncre[6];
-  float _transformMapped[6];
-  float _transformBefMapped[6];
-  float _transformAftMapped[6];
+  Twist _transformSum;
+  Twist _transformIncre;
+  Twist _transformMapped;
+  Twist _transformBefMapped;
+  Twist _transformAftMapped;
 
   nav_msgs::Odometry _laserOdometry2;         ///< latest integrated laser odometry message
   tf::StampedTransform _laserOdometryTrans2;  ///< latest integrated laser odometry transformation

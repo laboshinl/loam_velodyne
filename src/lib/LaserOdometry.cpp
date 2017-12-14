@@ -884,25 +884,13 @@ void LaserOdometry::process()
 void LaserOdometry::publishResult()
 {
   // publish odometry tranformations
-  geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(_transformSum.rot_z.rad(),
-                                                                              -_transformSum.rot_x.rad(),
-                                                                              -_transformSum.rot_y.rad());
+  convertTo(_transformSum, _laserOdometryMsg.pose.pose, _laserOdometryTrans );
 
   _laserOdometryMsg.header.stamp = _timeSurfPointsLessFlat;
-  _laserOdometryMsg.pose.pose.orientation.x = -geoQuat.y;
-  _laserOdometryMsg.pose.pose.orientation.y = -geoQuat.z;
-  _laserOdometryMsg.pose.pose.orientation.z = geoQuat.x;
-  _laserOdometryMsg.pose.pose.orientation.w = geoQuat.w;
-  _laserOdometryMsg.pose.pose.position.x = _transformSum.pos.x();
-  _laserOdometryMsg.pose.pose.position.y = _transformSum.pos.y();
-  _laserOdometryMsg.pose.pose.position.z = _transformSum.pos.z();
   _pubLaserOdometry.publish(_laserOdometryMsg);
 
   _laserOdometryTrans.stamp_ = _timeSurfPointsLessFlat;
-  _laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-  _laserOdometryTrans.setOrigin(tf::Vector3( _transformSum.pos.x(), _transformSum.pos.y(), _transformSum.pos.z()) );
   _tfBroadcaster.sendTransform(_laserOdometryTrans);
-
 
   // publish cloud results according to the input output ratio
   if (_ioRatio < 2 || _frameCount % _ioRatio == 1) {

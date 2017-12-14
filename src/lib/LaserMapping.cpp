@@ -1064,7 +1064,6 @@ void LaserMapping::publishResult()
     publishCloudMsg(_pubLaserCloudSurround, *_laserCloudSurroundDS, _timeLaserOdometry, "/camera_init");
   }
 
-
   // transform full resolution input cloud to map
   size_t laserCloudFullResNum = _laserCloudFullRes->points.size();
   for (int i = 0; i < laserCloudFullResNum; i++) {
@@ -1076,32 +1075,13 @@ void LaserMapping::publishResult()
 
 
   // publish odometry after mapped transformations
-  geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
-      ( _transformAftMapped.rot_z.rad(),
-        -_transformAftMapped.rot_x.rad(),
-        -_transformAftMapped.rot_y.rad());
+  convertTo( _transformAftMapped, _odomAftMapped.pose.pose, _aftMappedTrans );
+  convertTo( _transformBefMapped, _odomAftMapped.twist.twist);
 
   _odomAftMapped.header.stamp = _timeLaserOdometry;
-  _odomAftMapped.pose.pose.orientation.x = -geoQuat.y;
-  _odomAftMapped.pose.pose.orientation.y = -geoQuat.z;
-  _odomAftMapped.pose.pose.orientation.z = geoQuat.x;
-  _odomAftMapped.pose.pose.orientation.w = geoQuat.w;
-  _odomAftMapped.pose.pose.position.x = _transformAftMapped.pos.x();
-  _odomAftMapped.pose.pose.position.y = _transformAftMapped.pos.y();
-  _odomAftMapped.pose.pose.position.z = _transformAftMapped.pos.z();
-  _odomAftMapped.twist.twist.angular.x = _transformBefMapped.rot_x.rad();
-  _odomAftMapped.twist.twist.angular.y = _transformBefMapped.rot_y.rad();
-  _odomAftMapped.twist.twist.angular.z = _transformBefMapped.rot_z.rad();
-  _odomAftMapped.twist.twist.linear.x = _transformBefMapped.pos.x();
-  _odomAftMapped.twist.twist.linear.y = _transformBefMapped.pos.y();
-  _odomAftMapped.twist.twist.linear.z = _transformBefMapped.pos.z();
   _pubOdomAftMapped.publish(_odomAftMapped);
 
   _aftMappedTrans.stamp_ = _timeLaserOdometry;
-  _aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-  _aftMappedTrans.setOrigin(tf::Vector3(_transformAftMapped.pos.x(),
-                                        _transformAftMapped.pos.y(),
-                                        _transformAftMapped.pos.z()));
   _tfBroadcaster.sendTransform(_aftMappedTrans);
 }
 
