@@ -94,7 +94,7 @@ LaserMapping::LaserMapping(const float& scanPeriod,
   _laserCloudCornerDSArray.resize(_laserCloudNum);
   _laserCloudSurfDSArray.resize(_laserCloudNum);
 
-  for (int i = 0; i < _laserCloudNum; i++) {
+  for (size_t i = 0; i < _laserCloudNum; i++) {
     _laserCloudCornerArray[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
     _laserCloudSurfArray[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
     _laserCloudCornerDSArray[i].reset(new pcl::PointCloud<pcl::PointXYZI>());
@@ -506,26 +506,14 @@ void LaserMapping::process()
   while (centerCubeI < 3) {
     for (int j = 0; j < _laserCloudHeight; j++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
-        int i = _laserCloudWidth - 1;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer =
-            _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer =
-            _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        for (; i >= 1; i--) {
-          _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudCornerArray[i - 1 + _laserCloudWidth*j + _laserCloudWidth * _laserCloudHeight * k];
-          _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudSurfArray[i - 1 + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
+      for (int i = _laserCloudWidth - 1; i >= 1; i--) {
+        std::swap( _laserCloudCornerArray[ toIndex(i, j, k) ],
+                   _laserCloudCornerArray[ toIndex(i+1, j, k) ]);
+        std::swap( _laserCloudSurfArray[ toIndex(i, j, k) ],
+                   _laserCloudSurfArray[ toIndex(i+1, j, k) ]);
         }
-        _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeCornerPointer;
-        _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeSurfPointer;
-        laserCloudCubeCornerPointer->clear();
-        laserCloudCubeSurfPointer->clear();
       }
     }
-
     centerCubeI++;
     _laserCloudCenWidth++;
   }
@@ -533,26 +521,14 @@ void LaserMapping::process()
   while (centerCubeI >= _laserCloudWidth - 3) {
     for (int j = 0; j < _laserCloudHeight; j++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
-        int i = 0;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer =
-            _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer =
-            _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        for (; i < _laserCloudWidth - 1; i++) {
-          _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudCornerArray[i + 1 + _laserCloudWidth*j + _laserCloudWidth * _laserCloudHeight * k];
-          _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudSurfArray[i + 1 + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
+       for (int i = 0; i < _laserCloudWidth - 1; i++) {
+         std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
+                   _laserCloudCornerArray[ toIndex(i+1, j, k) ]);
+         std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
+                   _laserCloudSurfArray[ toIndex(i+1, j, k) ]);
         }
-        _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeCornerPointer;
-        _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeSurfPointer;
-        laserCloudCubeCornerPointer->clear();
-        laserCloudCubeSurfPointer->clear();
       }
     }
-
     centerCubeI--;
     _laserCloudCenWidth--;
   }
@@ -560,26 +536,14 @@ void LaserMapping::process()
   while (centerCubeJ < 3) {
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
-        int j = _laserCloudHeight - 1;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer =
-            _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer =
-            _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        for (; j >= 1; j--) {
-          _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudCornerArray[i + _laserCloudWidth*(j - 1) + _laserCloudWidth * _laserCloudHeight*k];
-          _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudSurfArray[i + _laserCloudWidth * (j - 1) + _laserCloudWidth * _laserCloudHeight*k];
+        for (int j = _laserCloudHeight - 1; j >= 1; j--) {
+          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
+                    _laserCloudCornerArray[ toIndex(i, j-1, k) ]);
+          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
+                    _laserCloudSurfArray[ toIndex(i, j-1, k) ]);
         }
-        _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeCornerPointer;
-        _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeSurfPointer;
-        laserCloudCubeCornerPointer->clear();
-        laserCloudCubeSurfPointer->clear();
       }
     }
-
     centerCubeJ++;
     _laserCloudCenHeight++;
   }
@@ -587,26 +551,14 @@ void LaserMapping::process()
   while (centerCubeJ >= _laserCloudHeight - 3) {
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int k = 0; k < _laserCloudDepth; k++) {
-        int j = 0;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer =
-            _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer =
-            _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        for (; j < _laserCloudHeight - 1; j++) {
-          _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudCornerArray[i + _laserCloudWidth*(j + 1) + _laserCloudWidth * _laserCloudHeight*k];
-          _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudSurfArray[i + _laserCloudWidth * (j + 1) + _laserCloudWidth * _laserCloudHeight*k];
+        for (int j = 0; j < _laserCloudHeight - 1; j++) {
+          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
+                    _laserCloudCornerArray[ toIndex(i, j+1, k) ]);
+          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
+                    _laserCloudSurfArray[ toIndex(i, j+1, k) ]);
         }
-        _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeCornerPointer;
-        _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeSurfPointer;
-        laserCloudCubeCornerPointer->clear();
-        laserCloudCubeSurfPointer->clear();
       }
     }
-
     centerCubeJ--;
     _laserCloudCenHeight--;
   }
@@ -614,26 +566,14 @@ void LaserMapping::process()
   while (centerCubeK < 3) {
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int j = 0; j < _laserCloudHeight; j++) {
-        int k = _laserCloudDepth - 1;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer =
-            _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer =
-            _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        for (; k >= 1; k--) {
-          _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudCornerArray[i + _laserCloudWidth*j + _laserCloudWidth * _laserCloudHeight*(k - 1)];
-          _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight*(k - 1)];
+        for (int k = _laserCloudDepth - 1; k >= 1; k--) {
+          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
+                    _laserCloudCornerArray[ toIndex(i, j, k-1) ]);
+          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
+                    _laserCloudSurfArray[ toIndex(i, j, k-1) ]);
         }
-        _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeCornerPointer;
-        _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeSurfPointer;
-        laserCloudCubeCornerPointer->clear();
-        laserCloudCubeSurfPointer->clear();
       }
     }
-
     centerCubeK++;
     _laserCloudCenDepth++;
   }
@@ -641,26 +581,14 @@ void LaserMapping::process()
   while (centerCubeK >= _laserCloudDepth - 3) {
     for (int i = 0; i < _laserCloudWidth; i++) {
       for (int j = 0; j < _laserCloudHeight; j++) {
-        int k = 0;
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeCornerPointer =
-            _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        pcl::PointCloud<pcl::PointXYZI>::Ptr laserCloudCubeSurfPointer =
-            _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k];
-        for (; k < _laserCloudDepth - 1; k++) {
-          _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudCornerArray[i + _laserCloudWidth*j + _laserCloudWidth * _laserCloudHeight*(k + 1)];
-          _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-              _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight*(k + 1)];
+        for (int k = 0; k < _laserCloudDepth - 1; k++) {
+          std::swap(_laserCloudCornerArray[ toIndex(i, j, k) ],
+                    _laserCloudCornerArray[ toIndex(i, j, k+1) ]);
+          std::swap(_laserCloudSurfArray[ toIndex(i, j, k) ],
+                    _laserCloudSurfArray[ toIndex(i, j, k+1) ]);
         }
-        _laserCloudCornerArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeCornerPointer;
-        _laserCloudSurfArray[i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k] =
-            laserCloudCubeSurfPointer;
-        laserCloudCubeCornerPointer->clear();
-        laserCloudCubeSurfPointer->clear();
       }
     }
-
     centerCubeK--;
     _laserCloudCenDepth--;
   }
@@ -705,7 +633,7 @@ void LaserMapping::process()
             }
           }
 
-          size_t cubeIdx = i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k;
+          size_t cubeIdx = i + _laserCloudWidth*j + _laserCloudWidth * _laserCloudHeight * k;
           if (isInLaserFOV) {
             _laserCloudValidInd.push_back(cubeIdx);
           }
@@ -872,9 +800,7 @@ void LaserMapping::optimizeTransformTobeMapped()
         Vector3 vc(0,0,0);
 
         for (int j = 0; j < 5; j++) {
-          vc.x() += _laserCloudCornerFromMap->points[pointSearchInd[j]].x;
-          vc.y() += _laserCloudCornerFromMap->points[pointSearchInd[j]].y;
-          vc.z() += _laserCloudCornerFromMap->points[pointSearchInd[j]].z;
+          vc += Vector3(_laserCloudCornerFromMap->points[pointSearchInd[j]]);
         }
         vc /= 5.0;
 
@@ -882,16 +808,14 @@ void LaserMapping::optimizeTransformTobeMapped()
         mat_a.setZero();
 
         for (int j = 0; j < 5; j++) {
-          float ax = _laserCloudCornerFromMap->points[pointSearchInd[j]].x - vc.x();
-          float ay = _laserCloudCornerFromMap->points[pointSearchInd[j]].y - vc.y();
-          float az = _laserCloudCornerFromMap->points[pointSearchInd[j]].z - vc.z();
+          Vector3 a = Vector3(_laserCloudCornerFromMap->points[pointSearchInd[j]]) - vc;
 
-          mat_a(0,0) += ax * ax;
-          mat_a(0,1) += ax * ay;
-          mat_a(0,2) += ax * az;
-          mat_a(1,1) += ay * ay;
-          mat_a(1,2) += ay * az;
-          mat_a(2,2) += az * az;
+          mat_a(0,0) += a.x() * a.x();
+          mat_a(0,1) += a.x() * a.y();
+          mat_a(0,2) += a.x() * a.z();
+          mat_a(1,1) += a.y() * a.y();
+          mat_a(1,2) += a.y() * a.z();
+          mat_a(2,2) += a.z() * a.z();
         }
         matA1 = mat_a / 5.0;
 

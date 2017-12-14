@@ -155,6 +155,13 @@ protected:
 
 
 private:
+
+  int toIndex(int i, int j, int k) const
+  {
+    return i + _laserCloudWidth * j + _laserCloudWidth * _laserCloudHeight * k;
+  }
+
+
   float _scanPeriod;          ///< time per scan
   const int _stackFrameNum;
   const int _mapFrameNum;
