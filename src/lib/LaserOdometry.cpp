@@ -790,7 +790,7 @@ void LaserOdometry::process()
 
         isDegenerate = false;
         float eignThre[6] = {10, 10, 10, 10, 10, 10};
-        for (int i = 5; i >= 0; i--) {
+        for (int i = 0; i < 6; i++) {
           if (matE(0, i) < eignThre[i]) {
             for (int j = 0; j < 6; j++) {
               matV2(i, j) = 0;
