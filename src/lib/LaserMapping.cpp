@@ -823,17 +823,17 @@ void LaserMapping::optimizeTransformTobeMapped()
         matD1 = esolver.eigenvalues().real();
         matV1 = esolver.eigenvectors().real();
 
-        if (matD1(0, 0) > 3 * matD1(0, 1)) {
+        if (matD1(0, 2) > 3 * matD1(0, 1)) {
 
           float x0 = pointSel.x;
           float y0 = pointSel.y;
           float z0 = pointSel.z;
-          float x1 = vc.x() + 0.1 * matV1(0, 0);
-          float y1 = vc.y() + 0.1 * matV1(0, 1);
-          float z1 = vc.z() + 0.1 * matV1(0, 2);
-          float x2 = vc.x() - 0.1 * matV1(0, 0);
-          float y2 = vc.y() - 0.1 * matV1(0, 1);
-          float z2 = vc.z() - 0.1 * matV1(0, 2);
+          float x1 = vc.x() + 0.1 * matV1(0, 2);
+          float y1 = vc.y() + 0.1 * matV1(1, 2);
+          float z1 = vc.z() + 0.1 * matV1(2, 2);
+          float x2 = vc.x() - 0.1 * matV1(0, 2);
+          float y2 = vc.y() - 0.1 * matV1(1, 2);
+          float z2 = vc.z() - 0.1 * matV1(2, 2);
 
           float a012 = sqrt(((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
                             * ((x0 - x1)*(y0 - y2) - (x0 - x2)*(y0 - y1))
@@ -997,7 +997,7 @@ void LaserMapping::optimizeTransformTobeMapped()
 
       isDegenerate = false;
       float eignThre[6] = {100, 100, 100, 100, 100, 100};
-      for (int i = 5; i >= 0; i--) {
+      for (int i = 0; i < 6; i++) {
         if (matE(0, i) < eignThre[i]) {
           for (int j = 0; j < 6; j++) {
             matV2(i, j) = 0;
