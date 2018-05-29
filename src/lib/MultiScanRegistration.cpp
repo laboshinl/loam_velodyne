@@ -70,23 +70,26 @@ int MultiScanMapper::getRingForAngle(const float& angle) {
 
 
 
-MultiScanRegistration::MultiScanRegistration(const MultiScanMapper& scanMapper,
-                                             const RegistrationParams& config)
-    : ScanRegistration(config),
-      _systemDelay(SYSTEM_DELAY),
-      _scanMapper(scanMapper)
+MultiScanRegistration::MultiScanRegistration(const MultiScanMapper& scanMapper)
+    : _scanMapper(scanMapper)
+{};
+
+
+
+bool MultiScanRegistration::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
 {
-
-};
-
-
-
-bool MultiScanRegistration::setup(ros::NodeHandle& node,
-                                  ros::NodeHandle& privateNode)
-{
-  if (!ScanRegistration::setup(node, privateNode)) {
+  RegistrationParams config;
+  if (!setupROS(node, privateNode, config))
     return false;
-  }
+
+  configure(config);
+  return true;
+}
+
+bool MultiScanRegistration::setupROS(ros::NodeHandle& node, ros::NodeHandle& privateNode, RegistrationParams& config_out)
+{
+  if (!ScanRegistration::setupROS(node, privateNode, config_out))
+    return false;
 
   // fetch scan mapping params
   std::string lidarName;
@@ -105,8 +108,8 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node,
 
     ROS_INFO("Set  %s  scan mapper.", lidarName.c_str());
     if (!privateNode.hasParam("scanPeriod")) {
-      _config.scanPeriod = 0.1;
-      ROS_INFO("Set scanPeriod: %f", _config.scanPeriod);
+      config_out.scanPeriod = 0.1;
+      ROS_INFO("Set scanPeriod: %f", config_out.scanPeriod);
     }
   } else {
     float vAngleMin, vAngleMax;
@@ -128,7 +131,6 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node,
     }
   }
 
-
   // subscribe to input cloud topic
   _subLaserCloud = node.subscribe<sensor_msgs::PointCloud2>
       ("/multi_scan_points", 2, &MultiScanRegistration::handleCloudMessage, this);
@@ -140,8 +142,9 @@ bool MultiScanRegistration::setup(ros::NodeHandle& node,
 
 void MultiScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 {
-  if (_systemDelay > 0) {
-    _systemDelay--;
+  if (_systemDelay > 0) 
+  {
+    --_systemDelay;
     return;
   }
 
@@ -149,18 +152,14 @@ void MultiScanRegistration::handleCloudMessage(const sensor_msgs::PointCloud2Con
   pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
   pcl::fromROSMsg(*laserCloudMsg, laserCloudIn);
 
-  process(laserCloudIn, laserCloudMsg->header.stamp);
+  process(laserCloudIn, fromROSTime(laserCloudMsg->header.stamp));
 }
 
 
 
-void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
-                                    const ros::Time& scanTime)
+void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn, const Time& scanTime)
 {
   size_t cloudSize = laserCloudIn.size();
-
-  // reset internal buffers and set IMU start state based on current scan time
-  reset(scanTime);
 
   // determine scan start and end orientations
   float startOri = -std::atan2(laserCloudIn[0].y, laserCloudIn[0].x);
@@ -174,7 +173,9 @@ void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserC
 
   bool halfPassed = false;
   pcl::PointXYZI point;
-  std::vector<pcl::PointCloud<pcl::PointXYZI> > laserCloudScans(_scanMapper.getNumberOfScanRings());
+  _laserCloudScans.resize(_scanMapper.getNumberOfScanRings());
+  // clear all scanline points
+  std::for_each(_laserCloudScans.begin(), _laserCloudScans.end(), [](auto&&v) {v.clear(); }); 
 
   // extract valid points from input cloud
   for (int i = 0; i < cloudSize; i++) {
@@ -224,33 +225,15 @@ void MultiScanRegistration::process(const pcl::PointCloud<pcl::PointXYZ>& laserC
     }
 
     // calculate relative scan time based on point orientation
-    float relTime = _config.scanPeriod * (ori - startOri) / (endOri - startOri);
+    float relTime = config().scanPeriod * (ori - startOri) / (endOri - startOri);
     point.intensity = scanID + relTime;
 
-    // project point to the start of the sweep using corresponding IMU data
-    if (hasIMUData()) {
-      setIMUTransformFor(relTime);
-      transformToStartIMU(point);
-    }
+    projectPointToStartOfSweep(point, relTime);
 
-    laserCloudScans[scanID].push_back(point);
+    _laserCloudScans[scanID].push_back(point);
   }
 
-  // construct sorted full resolution cloud
-  cloudSize = 0;
-  for (int i = 0; i < _scanMapper.getNumberOfScanRings(); i++) {
-    _laserCloud += laserCloudScans[i];
-
-    IndexRange range(cloudSize, 0);
-    cloudSize += laserCloudScans[i].size();
-    range.second = cloudSize > 0 ? cloudSize - 1 : 0;
-    _scanIndices.push_back(range);
-  }
-
-  // extract features
-  extractFeatures();
-
-  // publish result
+  processScanlines(scanTime, _laserCloudScans);
   publishResult();
 }
 

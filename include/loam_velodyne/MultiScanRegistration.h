@@ -103,17 +103,10 @@ private:
  */
 class MultiScanRegistration : virtual public ScanRegistration {
 public:
-  MultiScanRegistration(const MultiScanMapper& scanMapper = MultiScanMapper(),
-                        const RegistrationParams& config = RegistrationParams());
+  MultiScanRegistration(const MultiScanMapper& scanMapper = MultiScanMapper());
 
 
-  /** \brief Setup component in active mode.
-   *
-   * @param node the ROS node handle
-   * @param privateNode the private ROS node handle
-   */
-  bool setup(ros::NodeHandle& node,
-             ros::NodeHandle& privateNode);
+  bool setup(ros::NodeHandle& node, ros::NodeHandle& privateNode);
 
   /** \brief Handler method for input cloud messages.
    *
@@ -121,24 +114,27 @@ public:
    */
   void handleCloudMessage(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg);
 
+private:
+  /** \brief Setup component in active mode.
+   *
+   * @param node the ROS node handle
+   * @param privateNode the private ROS node handle
+   */
+  bool setupROS(ros::NodeHandle& node, ros::NodeHandle& privateNode, RegistrationParams& config_out) override;
+
   /** \brief Process a new input cloud.
    *
    * @param laserCloudIn the new input cloud to process
    * @param scanTime the scan (message) timestamp
    */
-  void process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn,
-               const ros::Time& scanTime);
-
-
-protected:
-  int _systemDelay;             ///< system startup delay counter
-  MultiScanMapper _scanMapper;  ///< mapper for mapping vertical point angles to scan ring IDs
-
-  ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber
-
+  void process(const pcl::PointCloud<pcl::PointXYZ>& laserCloudIn, const Time& scanTime);
 
 private:
-  static const int SYSTEM_DELAY = 20;
+  int _systemDelay = 20;             ///< system startup delay counter
+  MultiScanMapper _scanMapper;  ///< mapper for mapping vertical point angles to scan ring IDs
+  std::vector<pcl::PointCloud<pcl::PointXYZI> > _laserCloudScans;
+  ros::Subscriber _subLaserCloud;   ///< input cloud message subscriber
+
 };
 
 } // end namespace loam
