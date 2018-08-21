@@ -1,8 +1,9 @@
 #ifndef LOAM_ANGLE_H
 #define LOAM_ANGLE_H
 
-
+#define _USE_MATH_DEFINES
 #include <cmath>
+#include <math.h>
 
 
 namespace loam {
@@ -53,7 +54,7 @@ public:
 
   float rad() const { return _radian; }
 
-  float deg() const { return _radian * 180 / M_PI; }
+  float deg() const { return float(_radian * 180 / M_PI); }
 
   float cos() const { return _cos; }
 

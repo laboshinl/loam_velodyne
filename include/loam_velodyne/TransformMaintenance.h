@@ -38,12 +38,14 @@
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 
+#include "loam_velodyne/BasicTransformMaintenance.h"
+
 namespace loam {
 
 /** \brief Implementation of the LOAM transformation maintenance component.
  *
  */
-class TransformMaintenance {
+class TransformMaintenance: public BasicTransformMaintenance {
 public:
   TransformMaintenance();
 
@@ -52,8 +54,7 @@ public:
    * @param node the ROS node handle
    * @param privateNode the private ROS node handle
    */
-  virtual bool setup(ros::NodeHandle& node,
-                     ros::NodeHandle& privateNode);
+  virtual bool setup(ros::NodeHandle& node, ros::NodeHandle& privateNode);
 
   /** \brief Handler method for laser odometry messages.
    *
@@ -67,18 +68,7 @@ public:
    */
   void odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped);
 
-
-protected:
-  void transformAssociateToMap();
-
-
 private:
-  float _transformSum[6];
-  float _transformIncre[6];
-  float _transformMapped[6];
-  float _transformBefMapped[6];
-  float _transformAftMapped[6];
-
   nav_msgs::Odometry _laserOdometry2;         ///< latest integrated laser odometry message
   tf::StampedTransform _laserOdometryTrans2;  ///< latest integrated laser odometry transformation
 
