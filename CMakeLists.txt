@@ -8,7 +8,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  tf)
+  tf
+  pcl_conversions)
 
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
@@ -20,7 +21,7 @@ include_directories(
 	${PCL_INCLUDE_DIRS})
 
 catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs
+  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs tf pcl_conversions
   DEPENDS EIGEN3 PCL
   INCLUDE_DIRS include
   LIBRARIES loam
