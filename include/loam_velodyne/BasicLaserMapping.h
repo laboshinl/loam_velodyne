@@ -96,6 +96,7 @@ public:
 
    auto& downSizeFilterCorner() { return _downSizeFilterCorner; }
    auto& downSizeFilterSurf() { return _downSizeFilterSurf; }
+   auto& downSizeFilterMap() { return _downSizeFilterMap; }
 
    auto frameCount()    const { return _frameCount; }
    auto scanPeriod()    const { return _scanPeriod; }
@@ -177,6 +178,7 @@ private:
 
    pcl::VoxelGrid<pcl::PointXYZI> _downSizeFilterCorner;   ///< voxel filter for down sizing corner clouds
    pcl::VoxelGrid<pcl::PointXYZI> _downSizeFilterSurf;     ///< voxel filter for down sizing surface clouds
+   pcl::VoxelGrid<pcl::PointXYZI> _downSizeFilterMap;      ///< voxel filter for down sizing accumulated map
 
    bool _downsizedMapCreated = false;
 };

@@ -77,7 +77,7 @@ public:
    * @param angle the vertical point angle (in rad)
    * @return the ring ID
    */
-  inline int getRingForAngle(const float& angle);
+  int getRingForAngle(const float& angle);
 
   /** Multi scan mapper for Velodyne VLP-16 according to data sheet. */
   static inline MultiScanMapper Velodyne_VLP_16() { return MultiScanMapper(-15, 15, 16); };
