@@ -65,9 +65,8 @@ inline void publishCloudMsg(ros::Publisher& publisher,
 // ROS time adapters
 inline Time fromROSTime(ros::Time const& rosTime)
 {
-  auto epoch = std::chrono::system_clock::time_point();
   auto since_epoch = std::chrono::seconds(rosTime.sec) + std::chrono::nanoseconds(rosTime.nsec);
-  return epoch + since_epoch;
+  return Time() + since_epoch;
 }
 
 inline ros::Time toROSTime(Time const& time_point)

@@ -1,4 +1,4 @@
-add_library(loam
+add_library(loam STATIC
             math_utils.h
             ScanRegistration.cpp
             BasicScanRegistration.cpp

@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions)
 
 find_package(Eigen3 REQUIRED)
-find_package(PCL REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common filters)
 
 include_directories(
   include
