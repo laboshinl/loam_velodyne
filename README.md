@@ -32,7 +32,7 @@ rosbag play ~/Downloads/velodyne.bag
 
 Or read from velodyne [VLP16 sample pcap](https://midas3.kitware.com/midas/folder/12979):
 ```
-roslaunch velodyne_pointcloud VLP16_points.launch pcap:="/home/laboshinl/Downloads/velodyne.pcap"
+roslaunch velodyne_pointcloud VLP16_points.launch pcap:="$HOME/Downloads/velodyne.pcap"
 ```
 
 ---
