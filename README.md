@@ -35,6 +35,19 @@ Or read from velodyne [VLP16 sample pcap](https://midas3.kitware.com/midas/folde
 roslaunch velodyne_pointcloud VLP16_points.launch pcap:="$HOME/Downloads/velodyne.pcap"
 ```
 
+## Troubleshooting
+
+### `multiScanRegistration` crashes right after playing bag file
+
+Issues [#71](https://github.com/laboshinl/loam_velodyne/issues/71) and
+[#7](https://github.com/laboshinl/loam_velodyne/issues/7) address this
+problem. The current known solution is to build the same version of PCL that
+you have on your system from source, and set the `CMAKE_PREFIX_PATH`
+accordingly so that catkin can find it. See [this
+issue](https://github.com/laboshinl/loam_velodyne/issues/71#issuecomment-416024816)
+for more details.
+
+
 ---
 [Quantifying Aerial LiDAR Accuracy of LOAM for Civil Engineering Applications.](https://ceen.et.byu.edu/sites/default/files/snrprojects/wolfe_derek.pdf) Derek Anthony Wolfe
 
