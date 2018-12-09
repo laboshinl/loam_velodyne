@@ -25,7 +25,7 @@ $ source ~/catkin_ws/devel/setup.bash
 roslaunch loam_velodyne loam_velodyne.launch
 ```
 
-In second terminal play sample velodyne data from [VLP16 rosbag](https://db.tt/t2r39mjZ):
+In second terminal play sample velodyne data from [VLP16 rosbag](http://www.frc.ri.cmu.edu/~jizhang03/Datasets/):
 ```
 rosbag play ~/Downloads/velodyne.bag 
 ```
