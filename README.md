@@ -1,3 +1,5 @@
+# loam_velodyne
+
 ![Screenshot](/capture.bmp)
 Sample map built from [nsh_indoor_outdoor.bag](http://www.frc.ri.cmu.edu/~jizhang03/Datasets/nsh_indoor_outdoor.bag) (opened with [ccViewer](http://www.danielgm.net/cc/))
 
@@ -7,7 +9,7 @@ All sources were taken from [ROS documentation](http://docs.ros.org/indigo/api/l
 
 Ask questions [here](https://github.com/laboshinl/loam_velodyne/issues/3).
 
-How to build with catkin:
+## How to build with catkin
 
 ```
 $ cd ~/catkin_ws/src/
@@ -17,7 +19,8 @@ $ catkin_make -DCMAKE_BUILD_TYPE=Release
 $ source ~/catkin_ws/devel/setup.bash
 ```
 
-Running:
+## Running
+
 ```
 roslaunch loam_velodyne loam_velodyne.launch
 ```
