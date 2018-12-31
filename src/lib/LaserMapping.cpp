@@ -155,25 +155,31 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
    }
 
    // advertise laser mapping topics
-   _pubLaserCloudSurround = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surround", 1);
-   _pubLaserCloudFullRes  = node.advertise<sensor_msgs::PointCloud2>("/velodyne_cloud_registered", 2);
-   _pubOdomAftMapped      = node.advertise<nav_msgs::Odometry>("/aft_mapped_to_init", 5);
+   std::string mapOdomTopic;
+   ros::param::get("map_odom_topic", mapOdomTopic);
+   _pubLaserCloudSurround = node.advertise<sensor_msgs::PointCloud2>("laser_cloud_surround", 1);
+   _pubLaserCloudFullRes  = node.advertise<sensor_msgs::PointCloud2>("velodyne_cloud_registered", 2);
+   _pubOdomAftMapped      = node.advertise<nav_msgs::Odometry>(mapOdomTopic, 5);
 
    // subscribe to laser odometry topics
    _subLaserCloudCornerLast = node.subscribe<sensor_msgs::PointCloud2>
-      ("/laser_cloud_corner_last", 2, &LaserMapping::laserCloudCornerLastHandler, this);
+      ("laser_cloud_corner_last", 2, &LaserMapping::laserCloudCornerLastHandler, this);
 
    _subLaserCloudSurfLast = node.subscribe<sensor_msgs::PointCloud2>
-      ("/laser_cloud_surf_last", 2, &LaserMapping::laserCloudSurfLastHandler, this);
+      ("laser_cloud_surf_last", 2, &LaserMapping::laserCloudSurfLastHandler, this);
 
+    std::string loamOdomTopic;
+    ros::param::get("loam_odom_topic", loamOdomTopic);
    _subLaserOdometry = node.subscribe<nav_msgs::Odometry>
-      ("/laser_odom_to_init", 5, &LaserMapping::laserOdometryHandler, this);
+      (loamOdomTopic, 5, &LaserMapping::laserOdometryHandler, this);
 
    _subLaserCloudFullRes = node.subscribe<sensor_msgs::PointCloud2>
-      ("/velodyne_cloud_3", 2, &LaserMapping::laserCloudFullResHandler, this);
+      ("velodyne_cloud_3", 2, &LaserMapping::laserCloudFullResHandler, this);
 
    // subscribe to IMU topic
-   _subImu = node.subscribe<sensor_msgs::Imu>("/imu/data", 50, &LaserMapping::imuHandler, this);
+   std::string imuInputTopic;
+   ros::param::get("imu_input_topic", imuInputTopic);
+   _subImu = node.subscribe<sensor_msgs::Imu>(imuInputTopic, 50, &LaserMapping::imuHandler, this);
 
    return true;
 }

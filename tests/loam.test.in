@@ -9,6 +9,6 @@
   <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance"/>
 
   <node name="player" pkg="rosbag" type="play" args="@PROJECT_BINARY_DIR@/test_data/test_input.bag --clock -d1"/>
-  <node name="recorder" pkg="rosbag" type="record" args="/laser_cloud_surround /laser_odom_to_init /tf -O @PROJECT_BINARY_DIR@/test_output.bag" launch-prefix="timeout -s INT 32" />
+  <node name="recorder" pkg="rosbag" type="record" args="laser_cloud_surround /laser_odom_to_init /tf -O @PROJECT_BINARY_DIR@/test_output.bag" launch-prefix="timeout -s INT 32" />
   <test test-name="bag_test" pkg="loam_velodyne" type="bag_test" args="@PROJECT_BINARY_DIR@/test_data/test_comparison.bag @PROJECT_BINARY_DIR@/test_output.bag"/>
 </launch>

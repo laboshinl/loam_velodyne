@@ -141,26 +141,28 @@ namespace loam
     }
 
     // advertise laser odometry topics
-    _pubLaserCloudCornerLast = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_corner_last", 2);
-    _pubLaserCloudSurfLast = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surf_last", 2);
-    _pubLaserCloudFullRes = node.advertise<sensor_msgs::PointCloud2>("/velodyne_cloud_3", 2);
-    _pubLaserOdometry = node.advertise<nav_msgs::Odometry>("/laser_odom_to_init", 5);
+    std::string loamOdomTopic;
+    ros::param::get("loam_odom_topic", loamOdomTopic);
+    _pubLaserCloudCornerLast = node.advertise<sensor_msgs::PointCloud2>("laser_cloud_corner_last", 2);
+    _pubLaserCloudSurfLast = node.advertise<sensor_msgs::PointCloud2>("laser_cloud_surf_last", 2);
+    _pubLaserCloudFullRes = node.advertise<sensor_msgs::PointCloud2>("velodyne_cloud_3", 2);
+    _pubLaserOdometry = node.advertise<nav_msgs::Odometry>(loamOdomTopic, 5);
 
     // subscribe to scan registration topics
     _subCornerPointsSharp = node.subscribe<sensor_msgs::PointCloud2>
-      ("/laser_cloud_sharp", 2, &LaserOdometry::laserCloudSharpHandler, this);
+      ("laser_cloud_sharp", 2, &LaserOdometry::laserCloudSharpHandler, this);
 
     _subCornerPointsLessSharp = node.subscribe<sensor_msgs::PointCloud2>
-      ("/laser_cloud_less_sharp", 2, &LaserOdometry::laserCloudLessSharpHandler, this);
+      ("laser_cloud_less_sharp", 2, &LaserOdometry::laserCloudLessSharpHandler, this);
 
     _subSurfPointsFlat = node.subscribe<sensor_msgs::PointCloud2>
       ("/laser_cloud_flat", 2, &LaserOdometry::laserCloudFlatHandler, this);
 
     _subSurfPointsLessFlat = node.subscribe<sensor_msgs::PointCloud2>
-      ("/laser_cloud_less_flat", 2, &LaserOdometry::laserCloudLessFlatHandler, this);
+      ("laser_cloud_less_flat", 2, &LaserOdometry::laserCloudLessFlatHandler, this);
 
     _subLaserCloudFullRes = node.subscribe<sensor_msgs::PointCloud2>
-      ("/velodyne_cloud_2", 2, &LaserOdometry::laserCloudFullResHandler, this);
+      ("velodyne_cloud_2", 2, &LaserOdometry::laserCloudFullResHandler, this);
 
     _subImuTrans = node.subscribe<sensor_msgs::PointCloud2>
       ("/imu_trans", 5, &LaserOdometry::imuTransHandler, this);

@@ -52,15 +52,19 @@ TransformMaintenance::TransformMaintenance()
 
 bool TransformMaintenance::setup(ros::NodeHandle &node, ros::NodeHandle &privateNode)
 {
+  std::string mapOdomTopic, loamOdomTopic, lidarOdomTopic;
+  ros::param::get("map_odom_topic", mapOdomTopic);
+  ros::param::get("loam_odom_topic", loamOdomTopic);
+  ros::param::get("lidar_odom_topic", lidarOdomTopic);
    // advertise integrated laser odometry topic
-   _pubLaserOdometry2 = node.advertise<nav_msgs::Odometry>("/integrated_to_init", 5);
+   _pubLaserOdometry2 = node.advertise<nav_msgs::Odometry>(lidarOdomTopic, 5);
 
    // subscribe to laser odometry and mapping odometry topics
    _subLaserOdometry = node.subscribe<nav_msgs::Odometry>
-      ("/laser_odom_to_init", 5, &TransformMaintenance::laserOdometryHandler, this);
+      (loamOdomTopic, 5, &TransformMaintenance::laserOdometryHandler, this);
 
    _subOdomAftMapped = node.subscribe<nav_msgs::Odometry>
-      ("/aft_mapped_to_init", 5, &TransformMaintenance::odomAftMappedHandler, this);
+      (mapOdomTopic, 5, &TransformMaintenance::odomAftMappedHandler, this);
 
    return true;
 }
@@ -82,6 +86,8 @@ void TransformMaintenance::laserOdometryHandler(const nav_msgs::Odometry::ConstP
 
    geoQuat = tf::createQuaternionMsgFromRollPitchYaw(transformMapped()[2], -transformMapped()[0], -transformMapped()[1]);
 
+   std::vector<double> pose_covariance(6,0);
+   ros::param::get("lidar_odom_cov", pose_covariance);
    _laserOdometry2.header.stamp = laserOdometry->header.stamp;
    _laserOdometry2.pose.pose.orientation.x = -geoQuat.y;
    _laserOdometry2.pose.pose.orientation.y = -geoQuat.z;
@@ -90,6 +96,12 @@ void TransformMaintenance::laserOdometryHandler(const nav_msgs::Odometry::ConstP
    _laserOdometry2.pose.pose.position.x = transformMapped()[3];
    _laserOdometry2.pose.pose.position.y = transformMapped()[4];
    _laserOdometry2.pose.pose.position.z = transformMapped()[5];
+   _laserOdometry2.pose.covariance[0] = pose_covariance[0];
+   _laserOdometry2.pose.covariance[7] = pose_covariance[1];
+   _laserOdometry2.pose.covariance[14] = pose_covariance[2];
+   _laserOdometry2.pose.covariance[21] = pose_covariance[3];
+   _laserOdometry2.pose.covariance[28] = pose_covariance[4];
+   _laserOdometry2.pose.covariance[35] = pose_covariance[5];
    _pubLaserOdometry2.publish(_laserOdometry2);
 
    bool outputTransform;
