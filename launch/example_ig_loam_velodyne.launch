@@ -7,7 +7,8 @@
     <param name="lidar" value="VLP-16" /> <!-- options: VLP-16  HDL-32  HDL-64E -->
     <param name="scanPeriod" value="$(arg scanPeriod)" />
 
-    <remap from="/multi_scan_points" to="/velodyne_points" />
+    <remap from="/multi_scan_points" to="/hvlp/velodyne_points" />
+    <remap from="/imu/data" to="/imu/data/remapped" />
   </node>
 
   <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
