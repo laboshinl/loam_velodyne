@@ -37,12 +37,16 @@ namespace loam
 
 TransformMaintenance::TransformMaintenance()
 {
-   // initialize odometry and odometry tf messages
-   _laserOdometry2.header.frame_id = "/camera_init";
-   _laserOdometry2.child_frame_id = "/camera";
+  std::string initFrame, lidarFrame;
+  ros::param::get("init_frame", initFrame);
+  ros::param::get("lidar_frame", lidarFrame);
 
-   _laserOdometryTrans2.frame_id_ = "/camera_init";
-   _laserOdometryTrans2.child_frame_id_ = "/camera";
+   // initialize odometry and odometry tf messages
+   _laserOdometry2.header.frame_id = initFrame;
+   _laserOdometry2.child_frame_id = lidarFrame;
+
+   _laserOdometryTrans2.frame_id_ = initFrame;
+   _laserOdometryTrans2.child_frame_id_ = lidarFrame;
 }
 
 
@@ -88,10 +92,14 @@ void TransformMaintenance::laserOdometryHandler(const nav_msgs::Odometry::ConstP
    _laserOdometry2.pose.pose.position.z = transformMapped()[5];
    _pubLaserOdometry2.publish(_laserOdometry2);
 
-   _laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
-   _laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
-   _laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped()[3], transformMapped()[4], transformMapped()[5]));
-   _tfBroadcaster2.sendTransform(_laserOdometryTrans2);
+   bool outputTransform;
+   ros::param::get("output_transforms", outputTransform);
+   if(outputTransform){
+     _laserOdometryTrans2.stamp_ = laserOdometry->header.stamp;
+     _laserOdometryTrans2.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
+     _laserOdometryTrans2.setOrigin(tf::Vector3(transformMapped()[3], transformMapped()[4], transformMapped()[5]));
+     _tfBroadcaster2.sendTransform(_laserOdometryTrans2);
+   }
 }
 
 void TransformMaintenance::odomAftMappedHandler(const nav_msgs::Odometry::ConstPtr& odomAftMapped)

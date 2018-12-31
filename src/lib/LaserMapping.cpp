@@ -38,14 +38,17 @@ namespace loam
 
 LaserMapping::LaserMapping(const float& scanPeriod, const size_t& maxIterations)
 {
+  std::string initFrame, mapFrame;
+  ros::param::get("init_frame", initFrame);
+  ros::param::get("map_frame", mapFrame);
+
    // initialize mapping odometry and odometry tf messages
-   _odomAftMapped.header.frame_id = "/camera_init";
-   _odomAftMapped.child_frame_id = "/aft_mapped";
+   _odomAftMapped.header.frame_id = initFrame;
+   _odomAftMapped.child_frame_id = mapFrame;
 
-   _aftMappedTrans.frame_id_ = "/camera_init";
-   _aftMappedTrans.child_frame_id_ = "/aft_mapped";
+   _aftMappedTrans.frame_id_ = initFrame;
+   _aftMappedTrans.child_frame_id_ = mapFrame;
 }
-
 
 bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
 {
@@ -175,8 +178,6 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
    return true;
 }
 
-
-
 void LaserMapping::laserCloudCornerLastHandler(const sensor_msgs::PointCloud2ConstPtr& cornerPointsLastMsg)
 {
    _timeLaserCloudCornerLast = cornerPointsLastMsg->header.stamp;
@@ -275,12 +276,13 @@ void LaserMapping::process()
 
 void LaserMapping::publishResult()
 {
+
    // publish new map cloud according to the input output ratio
    if (hasFreshMap()) // publish new map cloud
-      publishCloudMsg(_pubLaserCloudSurround, laserCloudSurroundDS(), _timeLaserOdometry, "/camera_init");
+      publishCloudMsg(_pubLaserCloudSurround, laserCloudSurroundDS(), _timeLaserOdometry, _odomAftMapped.header.frame_id);
 
    // publish transformed full resolution input cloud
-   publishCloudMsg(_pubLaserCloudFullRes, laserCloud(), _timeLaserOdometry, "/camera_init");
+   publishCloudMsg(_pubLaserCloudFullRes, laserCloud(), _timeLaserOdometry, _odomAftMapped.header.frame_id);
 
    // publish odometry after mapped transformations
    geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
@@ -302,12 +304,16 @@ void LaserMapping::publishResult()
    _odomAftMapped.twist.twist.linear.z = transformBefMapped().pos.z();
    _pubOdomAftMapped.publish(_odomAftMapped);
 
+   bool outputTransform;
+   ros::param::get("output_transforms", outputTransform);
+   if(outputTransform){
    _aftMappedTrans.stamp_ = _timeLaserOdometry;
    _aftMappedTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
    _aftMappedTrans.setOrigin(tf::Vector3(transformAftMapped().pos.x(),
                                          transformAftMapped().pos.y(),
                                          transformAftMapped().pos.z()));
    _tfBroadcaster.sendTransform(_aftMappedTrans);
+   }
 }
 
 } // end namespace loam

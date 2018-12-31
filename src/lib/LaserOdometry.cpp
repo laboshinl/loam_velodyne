@@ -52,12 +52,15 @@ namespace loam
     BasicLaserOdometry(scanPeriod, maxIterations),
     _ioRatio(ioRatio)
   {
+    std::string initFrame, odomFrame;
+    ros::param::get("init_frame", initFrame);
+    ros::param::get("odom_frame", odomFrame);
     // initialize odometry and odometry tf messages
-    _laserOdometryMsg.header.frame_id = "/camera_init";
-    _laserOdometryMsg.child_frame_id  = "/laser_odom";
+    _laserOdometryMsg.header.frame_id = initFrame;
+    _laserOdometryMsg.child_frame_id  = odomFrame;
 
-    _laserOdometryTrans.frame_id_       = "/camera_init";
-    _laserOdometryTrans.child_frame_id_ = "/laser_odom";
+    _laserOdometryTrans.frame_id_       = initFrame;
+    _laserOdometryTrans.child_frame_id_ = odomFrame;
   }
 
 
@@ -186,8 +189,6 @@ namespace loam
     _newCornerPointsSharp = true;
   }
 
-
-
   void LaserOdometry::laserCloudLessSharpHandler(const sensor_msgs::PointCloud2ConstPtr& cornerPointsLessSharpMsg)
   {
     _timeCornerPointsLessSharp = cornerPointsLessSharpMsg->header.stamp;
@@ -198,8 +199,6 @@ namespace loam
     pcl::removeNaNFromPointCloud(*cornerPointsLessSharp(), *cornerPointsLessSharp(), indices);
     _newCornerPointsLessSharp = true;
   }
-
-
 
   void LaserOdometry::laserCloudFlatHandler(const sensor_msgs::PointCloud2ConstPtr& surfPointsFlatMsg)
   {
@@ -212,8 +211,6 @@ namespace loam
     _newSurfPointsFlat = true;
   }
 
-
-
   void LaserOdometry::laserCloudLessFlatHandler(const sensor_msgs::PointCloud2ConstPtr& surfPointsLessFlatMsg)
   {
     _timeSurfPointsLessFlat = surfPointsLessFlatMsg->header.stamp;
@@ -224,8 +221,6 @@ namespace loam
     pcl::removeNaNFromPointCloud(*surfPointsLessFlat(), *surfPointsLessFlat(), indices);
     _newSurfPointsLessFlat = true;
   }
-
-
 
   void LaserOdometry::laserCloudFullResHandler(const sensor_msgs::PointCloud2ConstPtr& laserCloudFullResMsg)
   {
@@ -238,8 +233,6 @@ namespace loam
     _newLaserCloudFullRes = true;
   }
 
-
-
   void LaserOdometry::imuTransHandler(const sensor_msgs::PointCloud2ConstPtr& imuTransMsg)
   {
     _timeImuTrans = imuTransMsg->header.stamp;
@@ -249,7 +242,6 @@ namespace loam
     updateIMU(imuTrans);
     _newImuTrans = true;
   }
-
 
   void LaserOdometry::spin()
   {
@@ -269,7 +261,6 @@ namespace loam
     }
   }
 
-
   bool LaserOdometry::hasNewData()
   {
     return _newCornerPointsSharp && _newCornerPointsLessSharp && _newSurfPointsFlat &&
@@ -281,8 +272,6 @@ namespace loam
       fabs((_timeImuTrans - _timeSurfPointsLessFlat).toSec()) < 0.005;
   }
 
-
-
   void LaserOdometry::process()
   {
     if (!hasNewData())
@@ -292,7 +281,6 @@ namespace loam
     BasicLaserOdometry::process();
     publishResult();
   }
-
 
   void LaserOdometry::publishResult()
   {
@@ -311,20 +299,26 @@ namespace loam
     _laserOdometryMsg.pose.pose.position.z    = transformSum().pos.z();
     _pubLaserOdometry.publish(_laserOdometryMsg);
 
+    bool outputTransform;
+    std::string lidarFrame;
+    ros::param::get("output_transforms", outputTransform);
+    ros::param::get("lidar_frame", lidarFrame);
+    if(outputTransform){
     _laserOdometryTrans.stamp_ = _timeSurfPointsLessFlat;
     _laserOdometryTrans.setRotation(tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
     _laserOdometryTrans.setOrigin(tf::Vector3(transformSum().pos.x(), transformSum().pos.y(), transformSum().pos.z()));
     _tfBroadcaster.sendTransform(_laserOdometryTrans);
+    }
 
     // publish cloud results according to the input output ratio
     if (_ioRatio < 2 || frameCount() % _ioRatio == 1)
     {
       ros::Time sweepTime = _timeSurfPointsLessFlat;
-      publishCloudMsg(_pubLaserCloudCornerLast, *lastCornerCloud(), sweepTime, "/camera");
-      publishCloudMsg(_pubLaserCloudSurfLast, *lastSurfaceCloud(), sweepTime, "/camera");
+      publishCloudMsg(_pubLaserCloudCornerLast, *lastCornerCloud(), sweepTime, lidarFrame);
+      publishCloudMsg(_pubLaserCloudSurfLast, *lastSurfaceCloud(), sweepTime, lidarFrame);
 
       transformToEnd(laserCloud());  // transform full resolution cloud to sweep end before sending it
-      publishCloudMsg(_pubLaserCloudFullRes, *laserCloud(), sweepTime, "/camera");
+      publishCloudMsg(_pubLaserCloudFullRes, *laserCloud(), sweepTime, lidarFrame);
     }
   }
 
