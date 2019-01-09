@@ -321,6 +321,9 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
                std::swap(_laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB]);
                std::swap(_laserCloudSurfArray[indexA], _laserCloudSurfArray[indexB]);
             }
+            const size_t indexC = toIndex(0, j, k);
+            _laserCloudCornerArray[indexC]->clear();
+            _laserCloudSurfArray[indexC]->clear();
          }
       }
       centerCubeI++;
@@ -340,6 +343,9 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
                std::swap(_laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB]);
                std::swap(_laserCloudSurfArray[indexA], _laserCloudSurfArray[indexB]);
             }
+            const size_t indexC = toIndex(_laserCloudWidth - 1, j, k);
+            _laserCloudCornerArray[indexC]->clear();
+            _laserCloudSurfArray[indexC]->clear();
          }
       }
       centerCubeI--;
@@ -359,6 +365,9 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
                std::swap(_laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB]);
                std::swap(_laserCloudSurfArray[indexA], _laserCloudSurfArray[indexB]);
             }
+            const size_t indexC = toIndex(i, 0, k);
+            _laserCloudCornerArray[indexC]->clear();
+            _laserCloudSurfArray[indexC]->clear();
          }
       }
       centerCubeJ++;
@@ -378,6 +387,9 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
                std::swap(_laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB]);
                std::swap(_laserCloudSurfArray[indexA], _laserCloudSurfArray[indexB]);
             }
+            const size_t indexC = toIndex(i, _laserCloudHeight - 1, k);
+            _laserCloudCornerArray[indexC]->clear();
+            _laserCloudSurfArray[indexC]->clear();
          }
       }
       centerCubeJ--;
@@ -397,6 +409,9 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
                std::swap(_laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB]);
                std::swap(_laserCloudSurfArray[indexA], _laserCloudSurfArray[indexB]);
             }
+            const size_t indexC = toIndex(i, j, 0);
+            _laserCloudCornerArray[indexC]->clear();
+            _laserCloudSurfArray[indexC]->clear();
          }
       }
       centerCubeK++;
@@ -416,6 +431,9 @@ bool BasicLaserMapping::process(Time const& laserOdometryTime)
                std::swap(_laserCloudCornerArray[indexA], _laserCloudCornerArray[indexB]);
                std::swap(_laserCloudSurfArray[indexA], _laserCloudSurfArray[indexB]);
             }
+            const size_t indexC = toIndex(i, j, _laserCloudDepth - 1);
+            _laserCloudCornerArray[indexC]->clear();
+            _laserCloudSurfArray[indexC]->clear();
          }
       }
       centerCubeK--;
