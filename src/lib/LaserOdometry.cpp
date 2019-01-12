@@ -156,7 +156,7 @@ namespace loam
       ("laser_cloud_less_sharp", 2, &LaserOdometry::laserCloudLessSharpHandler, this);
 
     _subSurfPointsFlat = node.subscribe<sensor_msgs::PointCloud2>
-      ("/laser_cloud_flat", 2, &LaserOdometry::laserCloudFlatHandler, this);
+      ("laser_cloud_flat", 2, &LaserOdometry::laserCloudFlatHandler, this);
 
     _subSurfPointsLessFlat = node.subscribe<sensor_msgs::PointCloud2>
       ("laser_cloud_less_flat", 2, &LaserOdometry::laserCloudLessFlatHandler, this);
@@ -165,7 +165,7 @@ namespace loam
       ("velodyne_cloud_2", 2, &LaserOdometry::laserCloudFullResHandler, this);
 
     _subImuTrans = node.subscribe<sensor_msgs::PointCloud2>
-      ("/imu_trans", 5, &LaserOdometry::imuTransHandler, this);
+      ("imu_trans", 5, &LaserOdometry::imuTransHandler, this);
 
     return true;
   }
