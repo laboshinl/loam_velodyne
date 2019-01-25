@@ -684,14 +684,14 @@ void BasicLaserMapping::optimizeTransformTobeMapped()
                Vector3 a = Vector3(_laserCloudCornerFromMap->points[pointSearchInd[j]]) - vc;
 
                mat_a(0, 0) += a.x() * a.x();
-               mat_a(0, 1) += a.x() * a.y();
-               mat_a(0, 2) += a.x() * a.z();
+               mat_a(1, 0) += a.x() * a.y();
+               mat_a(2, 0) += a.x() * a.z();
                mat_a(1, 1) += a.y() * a.y();
-               mat_a(1, 2) += a.y() * a.z();
+               mat_a(2, 1) += a.y() * a.z();
                mat_a(2, 2) += a.z() * a.z();
             }
             matA1 = mat_a / 5.0;
-
+            // This solver only looks at the lower-triangular part of matA1.
             Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> esolver(matA1);
             matD1 = esolver.eigenvalues().real();
             matV1 = esolver.eigenvectors().real();
