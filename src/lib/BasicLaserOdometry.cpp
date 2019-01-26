@@ -558,6 +558,9 @@ void BasicLaserOdometry::process()
 
          matX = matAtA.colPivHouseholderQr().solve(matAtB);
 
+         // NOTE: Handling with the degeneracy problem according to the paper
+         // J. Zhang, M. Kaess and S. Singh, "On degeneracy of optimization-based state estimation problems,"
+         // 2016 IEEE International Conference on Robotics and Automation (ICRA), Stockholm, 2016
          if (iterCount == 0)
          {
             Eigen::Matrix<float, 1, 6> matE;
@@ -587,7 +590,7 @@ void BasicLaserOdometry::process()
                   break;
                }
             }
-            matP = matV.inverse() * matV2;
+            matP = matV2 * matV.inverse();
          }
 
          if (isDegenerate)
