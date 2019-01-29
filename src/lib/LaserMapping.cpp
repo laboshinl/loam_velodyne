@@ -137,6 +137,8 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
       }
    }
 
+/*
+   /// unused code
    if (privateNode.getParam("mapFilterSize", fParam))
    {
       if (fParam < 0.001)
@@ -150,6 +152,7 @@ bool LaserMapping::setup(ros::NodeHandle& node, ros::NodeHandle& privateNode)
          ROS_INFO("Set map down size filter leaf size: %g", fParam);
       }
    }
+*/
 
    // advertise laser mapping topics
    _pubLaserCloudSurround = node.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surround", 1);
