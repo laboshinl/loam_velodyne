@@ -1,0 +1,26 @@
+<launch>
+
+  <arg name="rviz" default="true" />
+  <arg name="scanPeriod" default="0.1" />
+
+  <group ns="/ig/loam" >
+    <rosparam command="load" file="$(find loam_velodyne)/config/ig_loam.yaml" />
+
+    <node pkg="loam_velodyne" type="multiScanRegistration" name="multiScanRegistration" output="screen">
+      <param name="lidar" value="VLP-16" /> <!-- options: VLP-16  HDL-32  HDL-64E -->
+      <param name="scanPeriod" value="$(arg scanPeriod)" />
+    </node>
+
+    <node pkg="loam_velodyne" type="laserOdometry" name="laserOdometry" output="screen" respawn="true">
+      <param name="scanPeriod" value="$(arg scanPeriod)" />
+    </node>
+
+    <node pkg="loam_velodyne" type="laserMapping" name="laserMapping" output="screen">
+      <param name="scanPeriod" value="$(arg scanPeriod)" />
+    </node>
+
+    <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance" output="screen">
+    </node>
+  </group>
+
+</launch>
