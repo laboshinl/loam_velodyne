@@ -6,12 +6,12 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Odometry1
+        - /TF1
+        - /TF1/Frames1
         - /PointCloud21
-        - /Odometry2
         - /PointCloud22
       Splitter Ratio: 0.5
-    Tree Height: 714
+    Tree Height: 875
   - Class: rviz/Selection
     Name: Selection
   - Class: rviz/Tool Properties
@@ -20,7 +20,7 @@ Panels:
       - /2D Nav Goal1
       - /Publish Point1
     Name: Tool Properties
-    Splitter Ratio: 0.588679
+    Splitter Ratio: 0.5886790156364441
   - Class: rviz/Views
     Expanded:
       - /Current View1
@@ -31,6 +31,10 @@ Panels:
     Name: Time
     SyncMode: 0
     SyncSource: PointCloud2
+Preferences:
+  PromptSaveOnExit: true
+Toolbars:
+  toolButtonStyle: 2
 Visualization Manager:
   Class: ""
   Displays:
@@ -40,7 +44,7 @@ Visualization Manager:
       Color: 160; 160; 164
       Enabled: true
       Line Style:
-        Line Width: 0.03
+        Line Width: 0.029999999329447746
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
@@ -56,14 +60,20 @@ Visualization Manager:
       Enabled: true
       Frame Timeout: 15
       Frames:
-        All Enabled: true
+        All Enabled: false
         aft_mapped:
-          Value: true
+          Value: false
         camera:
           Value: true
         camera_init:
           Value: true
         laser_odom:
+          Value: false
+        velodyne:
+          Value: true
+        vicon/rowan_velodyne/rowan_velodyne:
+          Value: true
+        world:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -71,25 +81,53 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        camera_init:
-          aft_mapped:
-            {}
-          camera:
-            {}
-          laser_odom:
-            {}
+        world:
+          camera_init:
+            aft_mapped:
+              {}
+            camera:
+              {}
+            laser_odom:
+              {}
+          vicon/rowan_velodyne/rowan_velodyne:
+            velodyne:
+              {}
       Update Interval: 0
       Value: true
-    - Angle Tolerance: 0.1
+    - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
-      Color: 255; 25; 0
-      Enabled: true
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
+      Enabled: false
       Keep: 100
-      Length: 1
       Name: Odometry
-      Position Tolerance: 0.1
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
       Topic: /integrated_to_init
-      Value: true
+      Unreliable: false
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -100,34 +138,59 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: FlatColor
-      Decay Time: 0
+      Color Transformer: Intensity
+      Decay Time: 10
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 15
+      Max Intensity: 111
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: PointCloud2
       Position Transformer: XYZ
       Queue Size: 10
-      Selectable: true
-      Size (Pixels): 1
-      Size (m): 0.01
+      Selectable: false
+      Size (Pixels): 3
+      Size (m): 0.009999999776482582
       Style: Points
-      Topic: /laser_cloud_surround
+      Topic: /velodyne_points
+      Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
-    - Angle Tolerance: 0.1
+    - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
-      Color: 0; 170; 0
+      Covariance:
+        Orientation:
+          Alpha: 0.5
+          Color: 255; 255; 127
+          Color Style: Unique
+          Frame: Local
+          Offset: 1
+          Scale: 1
+          Value: true
+        Position:
+          Alpha: 0.30000001192092896
+          Color: 204; 51; 204
+          Scale: 1
+          Value: true
+        Value: true
       Enabled: false
       Keep: 100
-      Length: 1
       Name: Odometry
-      Position Tolerance: 0.1
+      Position Tolerance: 0.10000000149011612
+      Shape:
+        Alpha: 1
+        Axes Length: 1
+        Axes Radius: 0.10000000149011612
+        Color: 255; 25; 0
+        Head Length: 0.30000001192092896
+        Head Radius: 0.10000000149011612
+        Shaft Length: 1
+        Shaft Radius: 0.05000000074505806
+        Value: Arrow
       Topic: /laser_odom_to_init
+      Unreliable: false
       Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -150,18 +213,20 @@ Visualization Manager:
       Name: PointCloud2
       Position Transformer: XYZ
       Queue Size: 10
-      Selectable: true
+      Selectable: false
       Size (Pixels): 3
-      Size (m): 0.01
+      Size (m): 0.009999999776482582
       Style: Points
       Topic: /velodyne_cloud_registered
+      Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: camera_init
+    Default Light: true
+    Fixed Frame: world
     Frame Rate: 30
   Name: root
   Tools:
@@ -172,7 +237,10 @@ Visualization Manager:
     - Class: rviz/FocusCamera
     - Class: rviz/Measure
     - Class: rviz/SetInitialPose
+      Theta std deviation: 0.2617993950843811
       Topic: /initialpose
+      X std deviation: 0.5
+      Y std deviation: 0.5
     - Class: rviz/SetGoal
       Topic: /move_base_simple/goal
     - Class: rviz/PublishPoint
@@ -182,9 +250,9 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 162.362
+      Distance: 20.07012176513672
       Enable Stereo Rendering:
-        Stereo Eye Separation: 0.06
+        Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
@@ -192,20 +260,23 @@ Visualization Manager:
         X: 0
         Y: 0
         Z: 0
+      Focal Shape Fixed Size: true
+      Focal Shape Size: 0.05000000074505806
+      Invert Z Axis: false
       Name: Current View
-      Near Clip Distance: 0.01
-      Pitch: -1.5698
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 0.8152025938034058
       Target Frame: aft_mapped
       Value: ThirdPersonFollower (rviz)
-      Yaw: 4.29039
+      Yaw: 4.830389499664307
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1026
+  Height: 1172
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000004000000000000013c0000035bfc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000006600fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c00610079007301000000430000035b000000df00fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f0000035bfc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a0056006900650077007301000000430000035b000000b800fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e100000197000000030000077a0000003efc0100000002fb0000000800540069006d006501000000000000077a0000022a00fffffffb0000000800540069006d00650100000000000004500000000000000000000005230000035b00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd000000040000000000000156000003f6fc0200000008fb0000001200530065006c0065006300740069006f006e00000001e10000009b0000005c00fffffffb0000001e0054006f006f006c002000500072006f007000650072007400690065007302000001ed000001df00000185000000a3fb000000120056006900650077007300200054006f006f02000001df000002110000018500000122fb000000200054006f006f006c002000500072006f0070006500720074006900650073003203000002880000011d000002210000017afb000000100044006900730070006c006100790073010000003d000003f6000000c900fffffffb0000002000730065006c0065006300740069006f006e00200062007500660066006500720200000138000000aa0000023a00000294fb00000014005700690064006500530074006500720065006f02000000e6000000d2000003ee0000030bfb0000000c004b0069006e0065006300740200000186000001060000030c00000261000000010000010f000003f6fc0200000003fb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000041000000780000000000000000fb0000000a00560069006500770073010000003d000003f6000000a400fffffffb0000001200530065006c0065006300740069006f006e010000025a000000b200000000000000000000000200000490000000a9fc0100000001fb0000000a00560069006500770073030000004e00000080000002e10000019700000003000007800000003efc0100000002fb0000000800540069006d0065010000000000000780000002eb00fffffffb0000000800540069006d006501000000000000045000000000000000000000050f000003f600000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Time:
@@ -214,6 +285,6 @@ Window Geometry:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1914
+  Width: 1920
   X: 0
   Y: 0
