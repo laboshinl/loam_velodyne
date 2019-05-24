@@ -16,7 +16,7 @@ find_package(PCL REQUIRED)
 
 include_directories(
   include
-	${catkin_INCLUDE_DIRS} 
+	${catkin_INCLUDE_DIRS}
 	#${EIGEN3_INCLUDE_DIR}
 	${PCL_INCLUDE_DIRS})
 
@@ -31,9 +31,6 @@ catkin_package(
 # set_property(TARGET invz_player PROPERTY CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-add_definitions( -march=native )
-
 
 add_subdirectory(src/lib)
 
@@ -68,5 +65,3 @@ if (CATKIN_ENABLE_TESTING)
       laserMapping
       transformMaintenance)
 endif()
-
-
