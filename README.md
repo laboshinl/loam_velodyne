@@ -15,7 +15,7 @@ Ask questions [here](https://github.com/laboshinl/loam_velodyne/issues/3).
 $ cd ~/catkin_ws/src/
 $ git clone https://github.com/laboshinl/loam_velodyne.git
 $ cd ~/catkin_ws
-$ catkin_make -DCMAKE_BUILD_TYPE=Release 
+$ catkin_make -DCMAKE_BUILD_TYPE=Release
 $ source ~/catkin_ws/devel/setup.bash
 ```
 
@@ -27,7 +27,7 @@ roslaunch loam_velodyne loam_velodyne.launch
 
 In second terminal play sample velodyne data from [VLP16 rosbag](http://www.frc.ri.cmu.edu/~jizhang03/Datasets/):
 ```
-rosbag play ~/Downloads/velodyne.bag 
+rosbag play ~/Downloads/velodyne.bag
 ```
 
 Or read from velodyne [VLP16 sample pcap](https://midas3.kitware.com/midas/folder/12979):
@@ -51,4 +51,20 @@ for more details.
 ---
 [Quantifying Aerial LiDAR Accuracy of LOAM for Civil Engineering Applications.](https://ceen.et.byu.edu/sites/default/files/snrprojects/wolfe_derek.pdf) Derek Anthony Wolfe
 
-[ROS & Loam_velodyne](https://ishiguro440.wordpress.com/2016/04/05/%E5%82%99%E5%BF%98%E9%8C%B2%E3%80%80ros-loam_velodyne/) 
+[ROS & Loam_velodyne](https://ishiguro440.wordpress.com/2016/04/05/%E5%82%99%E5%BF%98%E9%8C%B2%E3%80%80ros-loam_velodyne/)
+
+
+## Beam Robotics Notes:
+
+* Our default branch is beam_dev. There have been significant improvements over
+  the original code. The master branch was kept up to date with the upstream
+  repo for pulling changes in the future.
+* Our launch files includes a launch file to the imu transformer package (see
+  https://github.com/ros-perception/imu_pipeline). The install for this package
+  has been included in the beam_install_scripts, but if you are installing on
+  your own, you can run:
+  ```
+  sudo apt-get install ros-kinetic-imu-transformer
+  ```
+* You will also need to run the calibration publisher for the robot you are
+  using if you want to use the IMU data

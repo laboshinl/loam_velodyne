@@ -11,7 +11,11 @@ map_odom_topic: map_odom   # specify the topics for each of the odometry of each
 loam_odom_topic: loam_odom # odom corresponding to the frames above
 lidar_odom_topic: lidar_odom
 
-imu_input_topic: /imu/data/remapped
+imu_input_topic: /imu/data
+transform_imu_data: true
+imu_frame: IMU1_link  # used to lookup transform from imu to lidar.
+                      # This transform needs to be published so the
+                      # IMU data can be transformed into the lidar frame
 point_cloud_input_topic: /hvlp/velodyne_points
 
 # Set the covariance used for the lidar odometry topic

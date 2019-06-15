@@ -137,6 +137,39 @@ bool ScanRegistration::parseParams(const ros::NodeHandle& nh, RegistrationParams
     }
   }
 
+  std::string IMUFrame, lidarFrame;
+  ros::param::get("imu_frame", IMUFrame);
+  ros::param::get("lidar_frame", lidarFrame);
+  ros::param::get("transform_imu_data", _transformIMU);
+
+  // Get transformation to apply to IMU
+  if (_transformIMU) {
+    tf2_ros::Buffer tfBuffer;
+    tf2_ros::TransformListener tfListener(tfBuffer);
+    bool transform_found = false;
+    int counter = 0;
+    while(!transform_found){
+      transform_found = true;
+      counter++;
+      try {
+        _T_lidar_imu =
+            tfBuffer.lookupTransform(IMUFrame, lidarFrame, ros::Time(0));
+        transform_found = true;
+        ROS_INFO("Found IMU Lidar transform.");
+      } catch (tf2::TransformException &ex) {
+        transform_found = false;
+        ROS_INFO("%s", ex.what());
+        ROS_INFO("waiting for transform...");
+        ros::Duration(1.0).sleep();
+      }
+      if(counter > 10){
+        ROS_INFO("Cannot find transform from imu frame to lidar frame. Not transforming data.");
+        _transformIMU = false;
+        transform_found = true;
+      }
+    }
+  }
+
   return success;
 }
 
@@ -163,18 +196,27 @@ bool ScanRegistration::setupROS(ros::NodeHandle& node, ros::NodeHandle& privateN
 
 void ScanRegistration::handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn)
 {
+  // rotate IMU data to lidar frame
+  sensor_msgs::Imu::Ptr imuInRotated;
+  if(_transformIMU){
+    imuInRotated = boost::make_shared<sensor_msgs::Imu>();
+    doTransform(*imuIn, *imuInRotated, _T_lidar_imu);
+  } else {
+    imuInRotated = boost::make_shared<sensor_msgs::Imu>(*imuIn);
+  }
+
   tf::Quaternion orientation;
-  tf::quaternionMsgToTF(imuIn->orientation, orientation);
+  tf::quaternionMsgToTF(imuInRotated->orientation, orientation);
   double roll, pitch, yaw;
   tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
 
   Vector3 acc;
-  acc.x() = float(imuIn->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81);
-  acc.y() = float(imuIn->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81);
-  acc.z() = float(imuIn->linear_acceleration.x + sin(pitch)             * 9.81);
+  acc.x() = float(imuInRotated->linear_acceleration.y - sin(roll) * cos(pitch) * 9.81);
+  acc.y() = float(imuInRotated->linear_acceleration.z - cos(roll) * cos(pitch) * 9.81);
+  acc.z() = float(imuInRotated->linear_acceleration.x + sin(pitch)             * 9.81);
 
   IMUState newState;
-  newState.stamp = fromROSTime( imuIn->header.stamp);
+  newState.stamp = fromROSTime( imuInRotated->header.stamp);
   newState.roll = roll;
   newState.pitch = pitch;
   newState.yaw = yaw;

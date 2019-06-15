@@ -40,7 +40,10 @@
 
 #include <ros/node_handle.h>
 #include <sensor_msgs/Imu.h>
+#include <geometry_msgs/TransformStamped.h>
+#include <tf2_ros/transform_listener.h>
 
+#include "RotateIMUData.h"
 #include "BasicScanRegistration.h"
 
 
@@ -83,6 +86,8 @@ namespace loam
     bool parseParams(const ros::NodeHandle& nh, RegistrationParams& config_out);
 
   private:
+    geometry_msgs::TransformStamped _T_lidar_imu; ///< transform from imu to lidar needed to transform imu data
+    bool _transformIMU;
     ros::Subscriber _subImu;                    ///< IMU message subscriber
     ros::Publisher _pubLaserCloud;              ///< full resolution cloud message publisher
     ros::Publisher _pubCornerPointsSharp;       ///< sharp corner cloud message publisher
