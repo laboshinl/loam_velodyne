@@ -3,6 +3,9 @@
   <arg name="rviz" default="true" />
   <arg name="scanPeriod" default="0.1" />
 
+  <!-- Run calibration publisher to lookup transform from IMU to lidar -->
+  <include file="$(find calibration_publisher)/launch/calibration_publisher_ig.launch" />
+
   <group ns="/ig/loam" >
     <rosparam command="load" file="$(find loam_velodyne)/config/ig_loam.yaml" />
 
@@ -21,6 +24,10 @@
 
     <node pkg="loam_velodyne" type="transformMaintenance" name="transformMaintenance" output="screen">
     </node>
+  </group>
+
+  <group if="$(arg rviz)">
+    <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find loam_velodyne)/rviz_cfg/loam_velodyne.rviz" />
   </group>
 
 </launch>

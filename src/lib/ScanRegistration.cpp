@@ -153,7 +153,7 @@ bool ScanRegistration::parseParams(const ros::NodeHandle& nh, RegistrationParams
       counter++;
       try {
         _T_lidar_imu =
-            tfBuffer.lookupTransform(IMUFrame, lidarFrame, ros::Time(0));
+            tfBuffer.lookupTransform(lidarFrame, IMUFrame, ros::Time(0));
         transform_found = true;
         ROS_INFO("Found IMU Lidar transform.");
       } catch (tf2::TransformException &ex) {
@@ -200,10 +200,13 @@ void ScanRegistration::handleIMUMessage(const sensor_msgs::Imu::ConstPtr& imuIn)
   sensor_msgs::Imu::Ptr imuInRotated;
   if(_transformIMU){
     imuInRotated = boost::make_shared<sensor_msgs::Imu>();
-    doTransform(*imuIn, *imuInRotated, _T_lidar_imu);
+    transformIMU(*imuIn, *imuInRotated, _T_lidar_imu);
   } else {
     imuInRotated = boost::make_shared<sensor_msgs::Imu>(*imuIn);
   }
+
+  // Output imu data:
+  // std::cout << "IMU Rotated: \n" << *imuInRotated << "\n";
 
   tf::Quaternion orientation;
   tf::quaternionMsgToTF(imuInRotated->orientation, orientation);

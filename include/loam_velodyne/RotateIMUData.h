@@ -23,7 +23,7 @@ inline void transformCovariance(const boost::array<double, 9> &in,
 /**
  * Transforms sensor_msgs::Imu data from one frame to another
  */
-inline void doTransform(const sensor_msgs::Imu &imu_in,
+inline void transformIMU(const sensor_msgs::Imu &imu_in,
                         sensor_msgs::Imu &imu_out,
                         const geometry_msgs::TransformStamped &t_in) {
 
