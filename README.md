@@ -59,12 +59,4 @@ for more details.
 * Our default branch is beam_dev. There have been significant improvements over
   the original code. The master branch was kept up to date with the upstream
   repo for pulling changes in the future.
-* Our launch files includes a launch file to the imu transformer package (see
-  https://github.com/ros-perception/imu_pipeline). The install for this package
-  has been included in the beam_install_scripts, but if you are installing on
-  your own, you can run:
-  ```
-  sudo apt-get install ros-kinetic-imu-transformer
-  ```
-* You will also need to run the calibration publisher for the robot you are
-  using if you want to use the IMU data
+* Our launch files includes the calibration publisher launch file. This is needed to lookup the transform from the Lidar to IMU in order to transform the IMU data into the lidar frame. This feature is new.
